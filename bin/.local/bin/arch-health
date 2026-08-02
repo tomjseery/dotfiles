@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+printf '== Failed units ==\n'
+systemctl --failed --no-pager || true
+systemctl --user --failed --no-pager || true
+
+printf '\n== Package state ==\n'
+if command -v checkupdates >/dev/null 2>&1; then
+    checkupdates || [[ $? -eq 2 ]]
+else
+    printf 'Install pacman-contrib for checkupdates.\n'
+fi
+printf '\nForeign packages (AUR/manual):\n'
+pacman -Qm || true
+printf '\nOrphans:\n'
+pacman -Qtdq || true
+
+printf '\n== Storage ==\n'
+df -hT / /home
+printf '\nLargest journal usage:\n'
+journalctl --disk-usage
+
+printf '\n== Boot image ==\n'
+if [[ -e /boot/EFI/Linux/arch-linux.efi ]]; then
+    stat -c '%n  %s bytes  modified %y' /boot/EFI/Linux/arch-linux.efi
+else
+    printf 'WARNING: expected UKI is missing.\n'
+fi
+
+printf '\n== Recent high-priority boot messages ==\n'
+journalctl -b -p warning --no-pager -n 25 || true

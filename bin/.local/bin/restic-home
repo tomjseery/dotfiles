@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -z "${RESTIC_REPOSITORY:-}" ]]; then
+    printf 'Set RESTIC_REPOSITORY to an external disk or remote repository.\n' >&2
+    printf 'Also set RESTIC_PASSWORD_FILE or RESTIC_PASSWORD_COMMAND.\n' >&2
+    exit 2
+fi
+
+restic backup "$HOME" \
+    --one-file-system \
+    --exclude-caches \
+    --exclude "$HOME/.cache" \
+    --exclude "$HOME/.local/share/Trash" \
+    --exclude "$HOME/.local/share/Steam/steamapps/common" \
+    --exclude "$HOME/.var/app/*/cache" \
+    "$@"

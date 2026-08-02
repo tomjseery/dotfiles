@@ -1,0 +1,47 @@
+add_newline = true
+command_timeout = 1000
+format = """$os$username$hostname$directory$git_branch$git_status$fill$cmd_duration$status$time
+$character"""
+
+[os]
+disabled = false
+style = "bold #75D7EC"
+[os.symbols]
+Arch = "󰣇 "
+Linux = "󰌽 "
+
+[username]
+show_always = false
+style_user = "bold #F8F8F2"
+[hostname]
+ssh_only = true
+format = "on [$hostname]($style) "
+style = "bold #EFA554"
+[directory]
+style = "bold #9B6BDF"
+truncation_length = 4
+truncate_to_repo = false
+read_only = " 󰌾"
+[git_branch]
+symbol = " "
+style = "bold #75D7EC"
+[git_status]
+style = "bold #E356A7"
+[fill]
+symbol = " "
+[cmd_duration]
+min_time = 750
+format = "took [$duration]($style) "
+style = "#EFA554"
+[status]
+disabled = false
+format = "[$symbol$status]($style) "
+[time]
+disabled = false
+time_format = "%H:%M"
+format = "[$time]($style)"
+style = "dimmed #F8F8F2"
+[character]
+success_symbol = "[❯](bold #42E66C)"
+error_symbol = "[❯](bold #E64747)"
+vimcmd_symbol = "[❮](bold #9B6BDF)"
