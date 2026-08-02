@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=EasyEffects Service
+Comment=Apply PipeWire audio effects in the background
+Exec=easyeffects --service-mode
+Icon=com.github.wwmm.easyeffects
+Terminal=false
+X-KDE-autostart-after=panel
+X-KDE-StartupNotify=false
