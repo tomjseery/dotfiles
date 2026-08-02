@@ -12,3 +12,7 @@ fragment, preserving the older machine-specific functions and aliases.
 `restic-home` intentionally stores no password or repository URL. Configure
 those through `RESTIC_REPOSITORY` and `RESTIC_PASSWORD_FILE` (or
 `RESTIC_PASSWORD_COMMAND`) after choosing an external or remote destination.
+
+`finish-arch-setup` performs the root-owned package and service stage. It is
+kept separate so administrator authentication never needs to pass through an
+automation session.

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $EUID -ne 0 ]]; then
+    printf 'Run this script with sudo.\n' >&2
+    exit 2
+fi
+
+pacman -Syu --needed \
+    zsh starship zoxide fzf bat eza btop fastfetch yazi \
+    easyeffects lsp-plugins \
+    gamemode lib32-gamemode mangohud lib32-mangohud gamescope \
+    qemu-base libvirt virt-manager dnsmasq edk2-ovmf \
+    podman distrobox syncthing \
+    firewalld stow restic pacman-contrib
+
+systemctl enable --now firewalld.service
+systemctl enable --now libvirtd.service
+usermod -aG libvirt tommy
+
+printf '\nSystem packages and services are ready. Log out and back in to acquire the libvirt group.\n'
