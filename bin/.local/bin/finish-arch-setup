@@ -6,7 +6,7 @@ if [[ $EUID -ne 0 ]]; then
     exit 2
 fi
 
-pacman -Syu --needed \
+pacman -Syu --needed --noconfirm \
     zsh starship zoxide fzf bat eza btop fastfetch yazi \
     easyeffects lsp-plugins \
     gamemode lib32-gamemode mangohud lib32-mangohud gamescope \
