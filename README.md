@@ -1,11 +1,51 @@
 # Tommy's Arch dotfiles
 
 Managed with GNU Stow. Each top-level folder is an independent stow package —
-apply only the ones you want on a given machine:
+apply only the ones you want on a given machine.
 
-```sh
-stow --target="$HOME" shell apps bin kde kitty konsole vscode vesktop
-```
+## Setting up a new machine
+
+1. Fresh Arch install, then get git and clone this repo:
+
+   ```sh
+   sudo pacman -S --needed git
+   git clone https://github.com/tomjseery/dotfiles.git ~/.dotfiles
+   cd ~/.dotfiles
+   ```
+
+2. Install `yay` if this machine doesn't have an AUR helper yet:
+
+   ```sh
+   sudo pacman -S --needed base-devel
+   git clone https://aur.archlinux.org/yay-bin.git /tmp/yay-bin
+   (cd /tmp/yay-bin && makepkg -si)
+   ```
+
+3. Run the root-owned setup stage (official packages, `stow` itself, and
+   services). This needs its own sudo prompt — never run root setup through
+   an automation session:
+
+   ```sh
+   sudo bin/.local/bin/finish-arch-setup
+   ```
+
+4. Restore AUR packages:
+
+   ```sh
+   yay -S --needed - < packages/aur-packages.txt
+   ```
+
+5. Stow whichever packages you want on this machine (see below for what each
+   one contains — you don't have to take all of them):
+
+   ```sh
+   stow --target="$HOME" shell apps bin kde kitty konsole vscode vesktop
+   ```
+
+6. Log out and back in — KWin needs a relogin to pick up global shortcuts,
+   and you need to log out/in to acquire the `libvirt` group.
+
+## Packages
 
 - `shell` / `apps` / `bin` — shell config, autostart, fastfetch, MangoHud, yazi
 - `kde` — Plasma/KWin theme and global shortcuts (kwinrc, kglobalshortcutsrc,
@@ -31,16 +71,8 @@ those through `RESTIC_REPOSITORY` and `RESTIC_PASSWORD_FILE` (or
 kept separate so administrator authentication never needs to pass through an
 automation session.
 
-## Packages (not stowed)
-
 `packages/aur-packages.txt` is a plain list from `yay -Qqm` (AUR/foreign
-packages). Restore them on a new machine with:
-
-```sh
-yay -S --needed - < packages/aur-packages.txt
-```
-
-Official repo packages are still handled by `finish-arch-setup`.
+packages, not a stow package itself) — see step 4 above to restore it.
 
 ## Things deliberately kept out of this repo
 
