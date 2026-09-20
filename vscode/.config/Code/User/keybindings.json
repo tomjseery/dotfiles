@@ -1,0 +1,7 @@
+[
+    {
+        "key": "alt+i",
+        "command": "cpp-helper.create-implementation",
+        "when": "editorLangId == cpp || editorLangId == c"
+    }
+]

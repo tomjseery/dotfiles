@@ -1,0 +1,13 @@
+{
+    "workbench.colorTheme": "5412c41d-f76b-4488-85a7-1ae1a63bbfcc",
+    "files.autoSave": "afterDelay",
+    "editor.formatOnSave": true,
+    "editor.semanticHighlighting.enabled": false,
+    "clangd.semanticHighlighting": false,
+    "[cpp]": {
+        "editor.semanticHighlighting.enabled": false
+    },
+    "chat.openOnStartup": "off",
+    "git.confirmSync": false,
+    "editor.selectionClipboard": false
+}
