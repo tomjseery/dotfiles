@@ -10,8 +10,9 @@ than files to link directly into `$HOME`.
 
    ```sh
    pkexec pacman -S --needed git
-   git clone https://github.com/tomjseery/dotfiles.git ~/.dotfiles
-   cd ~/.dotfiles
+   mkdir -p ~/projects
+   git clone https://github.com/tomjseery/dotfiles.git ~/projects/dotfiles
+   cd ~/projects/dotfiles
    ```
 
 2. Install `yay` if this machine doesn't have an AUR helper yet:
