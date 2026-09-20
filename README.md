@@ -102,9 +102,14 @@ package itself). The locally built `midscroll` package is intentionally absent;
 `mouse/midscroll.conf` is the source of truth for `/etc/midscroll.conf`.
 `app-configs/chromium/middle-click-autoscroll.conf` controls the shared native
 Chromium/Electron/CEF integration. The files under
-`app-configs/thunderbird/middle-click-autoscroll/` configure Gecko's native
-behavior installation-wide without storing mail profiles. This keeps shared
-physical-input policy separate from app-specific integration.
+`app-configs/thunderbird/middle-click-autoscroll/` configure Thunderbird's
+installation-wide mouse preferences without storing mail profiles.
+Thunderbird-specific presentation lives separately under
+`app-configs/thunderbird/styling/`; its UI stylesheet separates message cards
+and makes the blank space between them a safe middle-click target instead of an
+"open message" target. It also reserves a wider blank gutter between the cards
+and the scrollbar for an easier target. This keeps shared physical-input policy
+separate from app-specific behavior and styling.
 
 `install-mouse-config` is safe to rerun and restores the complete setup,
 including packages, generated launchers, application integration, service
@@ -115,10 +120,12 @@ state, input-remapper policy, and one owner for each middle click:
 - those window classes are excluded from midscroll, so the application receives
   the real middle click and draws its normal fixed circular origin marker and
   direction-changing cursor;
-- Thunderbird is configured through Mozilla AutoConfig and excluded from
-  midscroll, giving every existing or future mail profile Gecko's native
-  autoscroll UI while disabling Linux middle-click paste inside Thunderbird;
-  traditional scrollbars stay visible so scrollable panes are identifiable;
+- Thunderbird is configured through Mozilla AutoConfig to disable Linux
+  middle-click paste in every existing or future mail profile, and is
+  deliberately handled by midscroll because Gecko's native
+  autoscroll actor does not cover the message-list UI; traditional scrollbars
+  stay visible, card-view gaps are larger, and a 32 px gutter beside the
+  scrollbar provides an easy target;
 - midscroll uses click-to-toggle mode as the system-wide fallback in terminals
   and native desktop applications that do not implement autoscroll themselves;
 - ordinary left and right clicks pass through unchanged while autoscroll is
@@ -152,16 +159,16 @@ native KDE application:
 2. A second middle click, left click, or right click stops it.
 3. Normal left/right clicks still activate their targets when autoscroll is
    inactive.
-4. In Chrome/webmail, Thunderbird, and VS Code, the native circular anchor
+4. In Chrome/webmail and VS Code, the native circular anchor
    stays fixed and the cursor changes to directional arrows as it moves around
    the anchor.
 5. In terminals and other fallback apps, scrolling works even though X11 has
    no midscroll fallback marker.
 
-Thunderbird's native autoscroll operates in rendered message/web content. Its
-message-list pane deliberately assigns middle click to opening a message, so
-test the native anchor inside a long message or another scrollable page in the
-right-hand content pane.
+Thunderbird uses the system-wide midscroll fallback for the whole window, so
+MMB works in the message list, rendered messages, and the blank gutter. Gecko's
+native arrow popup is unavailable in the message-list UI; on Plasma X11 the
+fallback scrolls without a marker.
 
 Diagnostics:
 
@@ -181,7 +188,7 @@ Recovery is deliberately simple. Stop autoscroll temporarily with
 `install-mouse-config`. To remove it, run
 `pkexec systemctl disable --now midscroll.service`,
 `systemctl --user disable --now midscroll-overlay.service`, then
-`middleclick-autoscroll disable`. Remove Thunderbird's native integration with:
+`middleclick-autoscroll disable`. Remove Thunderbird's managed preferences with:
 
 ```sh
 pkexec rm -f \

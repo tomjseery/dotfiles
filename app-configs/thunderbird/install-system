@@ -10,15 +10,35 @@ integration_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source_dir="$integration_dir/middle-click-autoscroll"
 caller_source="$source_dir/autoconfig.js"
 config_source="$source_dir/thunderbird.cfg"
+stylesheet_source="$integration_dir/styling/userChrome.css"
 
 [[ -d /usr/lib/thunderbird/defaults/pref ]] || exit 0
 
-for required_file in "$caller_source" "$config_source"; do
+for required_file in \
+    "$caller_source" \
+    "$config_source" \
+    "$stylesheet_source"; do
     if [[ ! -f $required_file ]]; then
         printf 'Missing Thunderbird integration file: %s\n' "$required_file" >&2
         exit 1
     fi
 done
+
+legacy_controller=/usr/lib/thunderbird/tomjseery-thread-pane-autoscroll.js
+if [[ -f $legacy_controller ]] &&
+    grep -Fqx '/* Managed by https://github.com/tomjseery/dotfiles. */' \
+        "$legacy_controller"; then
+    rm -f -- "$legacy_controller"
+fi
+
+# Remove the obsolete managed content stylesheet from older revisions without
+# touching a user-provided default-profile stylesheet.
+legacy_stylesheet=/usr/lib/thunderbird/defaults/profile/chrome/userContent.css
+if [[ -f $legacy_stylesheet ]] &&
+    grep -Fqx '/* Managed by https://github.com/tomjseery/dotfiles. */' \
+        "$legacy_stylesheet"; then
+    rm -f -- "$legacy_stylesheet"
+fi
 
 if ! cmp -s \
     "$caller_source" \
@@ -26,6 +46,16 @@ if ! cmp -s \
     install -o root -g root -m 0644 \
         "$caller_source" \
         /usr/lib/thunderbird/defaults/pref/tomjseery-autoscroll.js
+fi
+
+# Seed profiles created after this installer run. install-user handles every
+# profile that already exists in the current user's ~/.thunderbird directory.
+if ! cmp -s \
+    "$stylesheet_source" \
+    /usr/lib/thunderbird/defaults/profile/chrome/userChrome.css; then
+    install -D -o root -g root -m 0644 \
+        "$stylesheet_source" \
+        /usr/lib/thunderbird/defaults/profile/chrome/userChrome.css
 fi
 
 if ! cmp -s \
