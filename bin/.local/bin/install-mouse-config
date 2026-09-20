@@ -4,7 +4,6 @@ set -euo pipefail
 script_path=$(readlink -f "${BASH_SOURCE[0]}")
 repo_root=$(cd "$(dirname "$script_path")/../../.." && pwd)
 midscroll_config="$repo_root/mouse/midscroll.conf"
-middleclick_config="$repo_root/mouse/middleclick-autoscroll.conf"
 input_remapper_policy="$repo_root/mouse/input-remapper-config.json"
 input_remapper_merger="$repo_root/mouse/apply-input-remapper-config.py"
 midscroll_version=1.15
@@ -23,6 +22,7 @@ install_system_config() {
     )
     local missing_dependencies=()
     local conflicting_packages=()
+    local app_installer
     local package
 
     # midscroll or the application itself owns MMB. xmousepasteblock also
@@ -56,6 +56,11 @@ install_system_config() {
         changed=true
     fi
 
+    for app_installer in "$repo_root"/app-configs/*/install-system; do
+        [[ -x $app_installer ]] || continue
+        "$app_installer"
+    done
+
     systemctl enable midscroll.service
     if [[ $changed == true ]]; then
         systemctl restart midscroll.service
@@ -81,7 +86,6 @@ fi
 
 for required_file in \
     "$midscroll_config" \
-    "$middleclick_config" \
     "$input_remapper_policy" \
     "$input_remapper_merger"; do
     if [[ ! -f $required_file ]]; then
@@ -90,8 +94,16 @@ for required_file in \
     fi
 done
 
+aur_packages=(kdotool)
+for package_file in "$repo_root"/app-configs/*/aur-packages; do
+    [[ -f $package_file ]] || continue
+    while IFS= read -r package; do
+        [[ -n $package && $package != \#* ]] && aur_packages+=("$package")
+    done < "$package_file"
+done
+
 missing_aur_packages=()
-for package in kdotool middleclick-autoscroll; do
+for package in "${aur_packages[@]}"; do
     if ! pacman -Q "$package" &>/dev/null; then
         missing_aur_packages+=("$package")
     fi
@@ -167,46 +179,10 @@ pkill -x xmousepasteblock 2>/dev/null || true
 rm -f -- "$config_home/autostart/xmousepasteblock.desktop"
 systemctl --user daemon-reload
 
-# Retire the old hand-written browser stanzas. The maintained helper owns these
-# flags now and uses the quieter browser-specific feature switch.
-for browser_flags in \
-    "$config_home/chrome-flags.conf" \
-    "$config_home/chromium-flags.conf" \
-    "$config_home/brave-flags.conf"; do
-    [[ -f $browser_flags ]] || continue
-    cleaned_flags=$(mktemp)
-    sed \
-        -e '/^# Target-aware Windows-style click-to-toggle autoscroll inside .*\.$/d' \
-        -e '/^# System-wide hold-and-drag scrolling is provided by midscroll\.$/d' \
-        -e '/^--enable-blink-features=MiddleClickAutoscroll$/d' \
-        "$browser_flags" > "$cleaned_flags"
-    if cmp -s "$cleaned_flags" "$browser_flags"; then
-        rm -f -- "$cleaned_flags"
-    else
-        chmod --reference="$browser_flags" "$cleaned_flags"
-        mv -f -- "$cleaned_flags" "$browser_flags"
-    fi
+for app_installer in "$repo_root"/app-configs/*/install-user; do
+    [[ -x $app_installer ]] || continue
+    "$app_installer"
 done
-
-# middleclick-autoscroll must edit autostart launchers in place. A symlink to a
-# root-owned system launcher cannot be edited as the desktop user, so make the
-# Mullvad autostart entry a normal user-owned copy before the helper sees it.
-mullvad_autostart="$config_home/autostart/mullvad-vpn.desktop"
-if [[ -L $mullvad_autostart ]] \
-    && [[ $(readlink -f "$mullvad_autostart") == /usr/share/applications/mullvad-vpn.desktop ]]; then
-    mullvad_copy=$(mktemp)
-    cp --dereference -- "$mullvad_autostart" "$mullvad_copy"
-    chmod 0644 "$mullvad_copy"
-    mv -f -- "$mullvad_copy" "$mullvad_autostart"
-fi
-
-# Keep the app-native half of the setup declarative as well. This enables
-# Blink's built-in Windows-style anchor and directional cursors in Chromium,
-# Electron, and CEF applications, and watches for newly installed apps.
-install -D -m 0644 \
-    "$middleclick_config" \
-    "$config_home/middleclick-autoscroll/config"
-middleclick-autoscroll enable
 
 pkexec "$script_path" --system "$midscroll_package"
 
@@ -227,6 +203,9 @@ fi
 printf '\nMouse configuration applied.\n'
 printf '  midscroll: enabled and running\n'
 printf '  native autoscroll: enabled for Chromium/Electron/CEF apps\n'
+if pacman -Q thunderbird &>/dev/null; then
+    printf '  Thunderbird: native Gecko autoscroll configured for every profile\n'
+fi
 printf '  input-remapper autoload: empty; running injections stopped\n'
 printf '  ignored virtual device: input-remapper mouse\n'
 if [[ ${XDG_SESSION_TYPE-} == wayland ]]; then
@@ -234,4 +213,4 @@ if [[ ${XDG_SESSION_TYPE-} == wayland ]]; then
 else
     printf '  native apps show their built-in indicator; midscroll covers the rest\n'
 fi
-printf '  restart any open Chromium/Electron apps to load their native autoscroll flag\n'
+printf '  restart open native-autoscroll apps to load updated configuration\n'

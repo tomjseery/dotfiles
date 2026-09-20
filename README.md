@@ -1,7 +1,8 @@
 # tomjseery's Arch Linux dotfiles
 
-Managed with GNU Stow. Each top-level folder is an independent stow package —
-apply only the ones you want on a given machine.
+Managed primarily with GNU Stow. User-config folders are independent Stow
+packages; `mouse/`, `app-configs/`, and `packages/` are installer data rather
+than files to link directly into `$HOME`.
 
 ## Setting up a new machine
 
@@ -72,6 +73,14 @@ apply only the ones you want on a given machine.
 - `mouse` — source configuration for system-wide Windows-style middle-click
   autoscroll and the input-remapper conflict policy (applied by
   `install-mouse-config`, not Stow)
+- `app-configs` — application- or engine-specific source files consumed by
+  installers rather than Stow; shared Chromium behavior and Thunderbird's
+  Gecko-specific behavior are kept separate here
+
+An app integration may provide an `aur-packages` manifest and executable
+`install-user` and/or `install-system` hooks. `install-mouse-config` discovers
+those hooks automatically, so another application can be added in its own
+folder without folding its implementation into the central installer.
 
 The main `.bashrc` only contains a one-line loader for the managed shell
 fragment, preserving the older machine-specific functions and aliases.
@@ -91,9 +100,14 @@ package itself). The locally built `midscroll` package is intentionally absent;
 ## Mouse and middle-click autoscroll
 
 `mouse/midscroll.conf` is the source of truth for `/etc/midscroll.conf`.
-`mouse/middleclick-autoscroll.conf` is the source of truth for native
-Chromium/Electron/CEF support. `install-mouse-config` is safe to rerun and
-restores the complete setup, including packages, generated launchers, service
+`app-configs/chromium/middle-click-autoscroll.conf` controls the shared native
+Chromium/Electron/CEF integration. The files under
+`app-configs/thunderbird/middle-click-autoscroll/` configure Gecko's native
+behavior installation-wide without storing mail profiles. This keeps shared
+physical-input policy separate from app-specific integration.
+
+`install-mouse-config` is safe to rerun and restores the complete setup,
+including packages, generated launchers, application integration, service
 state, input-remapper policy, and one owner for each middle click:
 
 - `middleclick-autoscroll` enables Blink's built-in Windows-style autoscroll in
@@ -101,6 +115,9 @@ state, input-remapper policy, and one owner for each middle click:
 - those window classes are excluded from midscroll, so the application receives
   the real middle click and draws its normal fixed circular origin marker and
   direction-changing cursor;
+- Thunderbird is configured through Mozilla AutoConfig and excluded from
+  midscroll, giving every existing or future mail profile Gecko's native
+  autoscroll UI while disabling Linux middle-click paste inside Thunderbird;
 - midscroll uses click-to-toggle mode as the system-wide fallback in terminals
   and native desktop applications that do not implement autoscroll themselves;
 - ordinary left and right clicks pass through unchanged while autoscroll is
@@ -119,22 +136,24 @@ state, input-remapper policy, and one owner for each middle click:
   and patches their launchers automatically.
 
 The native marker and directional cursor are application UI, not a cursor-theme
-asset. Applications need to be restarted after the installer adds their Blink
-feature flag. On Plasma X11, midscroll's fallback still scrolls applications
+asset. Applications need to be restarted after the installer adds their native
+configuration. On Plasma X11, midscroll's fallback still scrolls applications
 without native support, but midscroll itself has no X11 marker; its upstream
 overlay is available on Wayland. The setup deliberately does not draw a custom
 lookalike icon.
 
-After applying the configuration, test a long page in Chrome/webmail, a VS
-Code editor, Konsole/Kitty scrollback, and another native KDE application:
+After applying the configuration, test a long page in Chrome/webmail, a long
+message in Thunderbird, a VS Code editor, Konsole/Kitty scrollback, and another
+native KDE application:
 
 1. A middle click starts autoscroll; moving away from the anchor changes speed
    and direction.
 2. A second middle click, left click, or right click stops it.
 3. Normal left/right clicks still activate their targets when autoscroll is
    inactive.
-4. In Chrome/webmail and VS Code, the native circular anchor stays fixed and
-   the cursor changes to directional arrows as it moves around the anchor.
+4. In Chrome/webmail, Thunderbird, and VS Code, the native circular anchor
+   stays fixed and the cursor changes to directional arrows as it moves around
+   the anchor.
 5. In terminals and other fallback apps, scrolling works even though X11 has
    no midscroll fallback marker.
 
@@ -156,9 +175,17 @@ Recovery is deliberately simple. Stop autoscroll temporarily with
 `install-mouse-config`. To remove it, run
 `pkexec systemctl disable --now midscroll.service`,
 `systemctl --user disable --now midscroll-overlay.service`, then
-`middleclick-autoscroll disable`. The retained input-remapper preset files can
-be enabled again manually only after midscroll is removed, but never enable the
-old `disable-middle` autoload entries while midscroll is running.
+`middleclick-autoscroll disable`. Remove Thunderbird's native integration with:
+
+```sh
+pkexec rm -f \
+    /usr/lib/thunderbird/defaults/pref/tomjseery-autoscroll.js \
+    /usr/lib/thunderbird/tomjseery-autoscroll.cfg
+```
+
+The retained input-remapper preset files can be enabled again manually only
+after midscroll is removed, but never enable the old `disable-middle` autoload
+entries while midscroll is running.
 
 ## Things deliberately kept out of this repo
 

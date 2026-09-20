@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+integration_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source_config="$integration_dir/middle-click-autoscroll.conf"
+config_home=${XDG_CONFIG_HOME:-"$HOME/.config"}
+
+if [[ ! -f $source_config ]]; then
+    printf 'Missing Chromium integration config: %s\n' "$source_config" >&2
+    exit 1
+fi
+
+# Retire hand-written browser stanzas. The maintained helper owns these flags
+# and uses the quieter browser-specific feature switch.
+for browser_flags in \
+    "$config_home/chrome-flags.conf" \
+    "$config_home/chromium-flags.conf" \
+    "$config_home/brave-flags.conf"; do
+    [[ -f $browser_flags ]] || continue
+    cleaned_flags=$(mktemp)
+    sed \
+        -e '/^# Target-aware Windows-style click-to-toggle autoscroll inside .*\.$/d' \
+        -e '/^# System-wide hold-and-drag scrolling is provided by midscroll\.$/d' \
+        -e '/^--enable-blink-features=MiddleClickAutoscroll$/d' \
+        "$browser_flags" > "$cleaned_flags"
+    if cmp -s "$cleaned_flags" "$browser_flags"; then
+        rm -f -- "$cleaned_flags"
+    else
+        chmod --reference="$browser_flags" "$cleaned_flags"
+        mv -f -- "$cleaned_flags" "$browser_flags"
+    fi
+done
+
+# An XDG autostart symlink to a root-owned launcher cannot be edited in place.
+# Materialize this known Electron launcher before the helper patches it.
+mullvad_autostart="$config_home/autostart/mullvad-vpn.desktop"
+if [[ -L $mullvad_autostart ]] \
+    && [[ $(readlink -f "$mullvad_autostart") == /usr/share/applications/mullvad-vpn.desktop ]]; then
+    mullvad_copy=$(mktemp)
+    cp --dereference -- "$mullvad_autostart" "$mullvad_copy"
+    chmod 0644 "$mullvad_copy"
+    mv -f -- "$mullvad_copy" "$mullvad_autostart"
+fi
+
+install -D -m 0644 \
+    "$source_config" \
+    "$config_home/middleclick-autoscroll/config"
+middleclick-autoscroll enable
