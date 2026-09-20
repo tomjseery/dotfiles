@@ -54,8 +54,10 @@ than files to link directly into `$HOME`.
    graphical administrator prompt to install `/etc/midscroll.conf` and enable
    the service. It is safe to rerun.
 
-7. Log out and back in. SDDM is configured to start Plasma Wayland, KWin picks
-   up the managed shortcuts, and the new session acquires the `libvirt` group.
+7. Reboot. SDDM is configured to start Plasma Wayland, KWin picks up the
+   managed shortcuts, and the new session acquires the `libvirt` group. A plain
+   logout is not sufficient for the first switch because SDDM's autologin
+   session choice is applied when the display manager starts.
 
 ## Packages
 
@@ -100,9 +102,12 @@ Wayland design:
 
 - midscroll is the single MMB owner in browsers, Electron apps, Thunderbird,
   terminals, and ordinary desktop applications;
-- click-to-toggle mode provides Windows-style autoscroll everywhere, while the
-  Wayland session helper draws midscroll's official anchor badge and ghost
-  cursor;
+- holding MMB and moving beyond the dead zone starts Windows-style autoscroll,
+  while a quick middle click is replayed to the application so links still
+  open in new tabs, terminal paste still works, and application actions are
+  preserved;
+- the Wayland session helper draws midscroll's official anchor badge and ghost
+  cursor during an autoscroll drag;
 - only applications that intentionally use native middle-drag are blacklisted
   (`freecad`, `orcaslicer`, and `minecraft`);
 - ordinary left and right clicks pass through unchanged while autoscroll is
@@ -127,11 +132,12 @@ After applying the configuration, test a long page in Chrome/webmail, a long
 message in Thunderbird, a VS Code editor, Konsole/Kitty scrollback, and another
 native KDE application:
 
-1. A middle click starts autoscroll; moving away from the anchor changes speed
-   and direction.
-2. A second middle click, left click, or right click stops it.
-3. Normal left/right clicks still activate their targets when autoscroll is
-   inactive.
+1. A quick middle click on a link opens it in a new tab; a quick middle click
+   still performs the application's normal MMB action elsewhere.
+2. Holding MMB and moving beyond the dead zone starts autoscroll; moving
+   farther from the anchor changes speed and direction, and releasing MMB
+   stops it.
+3. Normal left/right clicks still activate their targets.
 4. The midscroll anchor remains fixed while its ghost cursor follows the mouse.
 5. `printf '%s\n' "$XDG_SESSION_TYPE"` prints `wayland`; an X11 login still
    scrolls but cannot display midscroll's overlay.
