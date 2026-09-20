@@ -113,9 +113,12 @@ this state idempotently:
 - `app-configs/thunderbird/` installs Mozilla AutoConfig preferences for every
   existing and future Thunderbird profile. Gecko provides native autoscroll in
   rendered message content while retaining its own link and tab behavior.
-  Thunderbird chrome widgets such as the message list do not all implement the
-  Gecko autoscroll actor; this is an upstream application boundary, not papered
-  over with pointer-event CSS or a second input service.
+  Its separate `styling/` module preserves usable gaps between message cards
+  and a 32px right-hand gutter beside the scrollbar without changing the
+  virtual list's fixed row height. Thunderbird chrome widgets such as the
+  message list do not all implement the Gecko autoscroll actor; the styling
+  provides a clear scroll-container target without adding another input
+  service.
 - input-remapper's autoload map is set to `{}` and current injections are
   stopped, removing the obsolete `disable-middle` device grabs.
 - `midscroll`, `midscroll-overlay`, and `xmousepasteblock` are disabled and

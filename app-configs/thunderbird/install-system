@@ -10,6 +10,7 @@ integration_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source_dir="$integration_dir/middle-click-autoscroll"
 caller_source="$source_dir/autoconfig.js"
 config_source="$source_dir/thunderbird.cfg"
+stylesheet_source="$integration_dir/styling/userChrome.css"
 
 [[ -d /usr/lib/thunderbird/defaults/pref ]] || exit 0
 
@@ -19,11 +20,13 @@ install -o root -g root -m 0644 \
 install -o root -g root -m 0644 \
     "$config_source" \
     /usr/lib/thunderbird/tomjseery-autoscroll.cfg
+install -D -o root -g root -m 0644 \
+    "$stylesheet_source" \
+    /usr/lib/thunderbird/defaults/profile/chrome/userChrome.css
 
 # Remove only obsolete files previously managed by this repository.
 for obsolete in \
     /usr/lib/thunderbird/tomjseery-thread-pane-autoscroll.js \
-    /usr/lib/thunderbird/defaults/profile/chrome/userChrome.css \
     /usr/lib/thunderbird/defaults/profile/chrome/userContent.css; do
     if [[ -f $obsolete ]] &&
         grep -Fqx '/* Managed by https://github.com/tomjseery/dotfiles. */' \

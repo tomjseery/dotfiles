@@ -1,0 +1,29 @@
+/* Managed by https://github.com/tomjseery/dotfiles. */
+
+/*
+ * Thunderbird's card view normally leaves almost no blank area beside or
+ * between messages. Keep the row height unchanged because its virtual list
+ * assumes 46px rows, but make the existing padding usable and reserve a wide
+ * gutter beside the scrollbar.
+ *
+ * The row wrapper does not receive pointer events in its blank padding; the
+ * visible card remains fully clickable. This preserves normal message actions
+ * while making the gaps and right-hand gutter target the scroll container.
+ */
+@-moz-document url("about:3pane") {
+    #threadTree[rows="thread-card"] {
+        --card-container-padding-block: 5px !important;
+        box-sizing: border-box !important;
+        padding-inline-end: 32px !important;
+    }
+
+    #threadTree[rows="thread-card"] tbody[is="tree-view-table-body"],
+    #threadTree[rows="thread-card"] tr.card-layout,
+    #threadTree[rows="thread-card"] tr.card-layout > td {
+        pointer-events: none !important;
+    }
+
+    #threadTree[rows="thread-card"] tr.card-layout .card-container {
+        pointer-events: auto !important;
+    }
+}
