@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $EUID -ne 0 ]]; then
-    printf 'Run this script with sudo.\n' >&2
+    printf 'Run this script with pkexec.\n' >&2
     exit 2
 fi
 

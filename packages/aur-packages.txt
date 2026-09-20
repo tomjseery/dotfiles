@@ -12,7 +12,7 @@ kdotool
 klassy-bin
 kvantum-theme-whitesur-git
 litehtml0.9
-midscroll
+middleclick-autoscroll
 nerd-dictation-git
 openanime
 pear-desktop-bin
@@ -25,7 +25,5 @@ powershell-bin-debug
 vesktop
 vesktop-debug
 visual-studio-code-bin
-xmousepasteblock
-xmousepasteblock-debug
 yay
 yay-debug

@@ -1,0 +1,237 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_path=$(readlink -f "${BASH_SOURCE[0]}")
+repo_root=$(cd "$(dirname "$script_path")/../../.." && pwd)
+midscroll_config="$repo_root/mouse/midscroll.conf"
+middleclick_config="$repo_root/mouse/middleclick-autoscroll.conf"
+input_remapper_policy="$repo_root/mouse/input-remapper-config.json"
+input_remapper_merger="$repo_root/mouse/apply-input-remapper-config.py"
+midscroll_version=1.15
+
+install_system_config() {
+    if [[ $EUID -ne 0 ]]; then
+        printf 'The internal --system stage must run as root.\n' >&2
+        exit 2
+    fi
+
+    local package_path=${1-}
+    local changed=false
+    local official_dependencies=(
+        python python-evdev python-gobject python-cairo gtk4
+        gtk4-layer-shell librsvg polkit xorg-xprop
+    )
+    local missing_dependencies=()
+    local conflicting_packages=()
+    local package
+
+    # midscroll or the application itself owns MMB. xmousepasteblock also
+    # observes/blocks that button under X11 and must not run alongside them.
+    for package in xmousepasteblock xmousepasteblock-debug; do
+        if pacman -Q "$package" &>/dev/null; then
+            conflicting_packages+=("$package")
+        fi
+    done
+    if (( ${#conflicting_packages[@]} )); then
+        pacman -Rns --noconfirm "${conflicting_packages[@]}"
+    fi
+
+    for package in "${official_dependencies[@]}"; do
+        if ! pacman -Q "$package" &>/dev/null; then
+            missing_dependencies+=("$package")
+        fi
+    done
+    if (( ${#missing_dependencies[@]} )); then
+        pacman -S --needed --noconfirm "${missing_dependencies[@]}"
+    fi
+
+    if [[ -n $package_path ]]; then
+        pacman -U --noconfirm "$package_path"
+        systemctl daemon-reload
+        changed=true
+    fi
+
+    if ! cmp -s "$midscroll_config" /etc/midscroll.conf; then
+        install -o root -g root -m 0644 "$midscroll_config" /etc/midscroll.conf
+        changed=true
+    fi
+
+    systemctl enable midscroll.service
+    if [[ $changed == true ]]; then
+        systemctl restart midscroll.service
+    else
+        systemctl start midscroll.service
+    fi
+}
+
+if [[ ${1-} == --system ]]; then
+    install_system_config "${2-}"
+    exit 0
+fi
+
+if [[ $# -ne 0 ]]; then
+    printf 'usage: %s\n' "${0##*/}" >&2
+    exit 2
+fi
+
+if [[ $EUID -eq 0 ]]; then
+    printf 'Run this installer as your normal desktop user; it opens a graphical administrator prompt when needed.\n' >&2
+    exit 2
+fi
+
+for required_file in \
+    "$midscroll_config" \
+    "$middleclick_config" \
+    "$input_remapper_policy" \
+    "$input_remapper_merger"; do
+    if [[ ! -f $required_file ]]; then
+        printf 'Required repository file is missing: %s\n' "$required_file" >&2
+        exit 1
+    fi
+done
+
+missing_aur_packages=()
+for package in kdotool middleclick-autoscroll; do
+    if ! pacman -Q "$package" &>/dev/null; then
+        missing_aur_packages+=("$package")
+    fi
+done
+if (( ${#missing_aur_packages[@]} )); then
+    if ! command -v yay &>/dev/null; then
+        printf 'yay is required to install: %s\n' "${missing_aur_packages[*]}" >&2
+        exit 1
+    fi
+    yay --sudo pkexec -S --needed --noconfirm "${missing_aur_packages[@]}"
+fi
+
+midscroll_package=
+installed_midscroll_version=$(pacman -Q midscroll 2>/dev/null | awk '{print $2}' || true)
+if [[ -z $installed_midscroll_version ]] \
+    || (( $(vercmp "$installed_midscroll_version" "$midscroll_version-1") < 0 )); then
+    for command in git makepkg; do
+        if ! command -v "$command" &>/dev/null; then
+            printf '%s is required to build midscroll %s.\n' "$command" "$midscroll_version" >&2
+            exit 1
+        fi
+    done
+
+    build_directory=$(mktemp -d)
+    cleanup_build_directory() {
+        rm -rf -- "$build_directory"
+    }
+    trap cleanup_build_directory EXIT
+
+    git clone --branch "v$midscroll_version" --depth 1 \
+        https://github.com/gnhen/midscroll.git \
+        "$build_directory/midscroll"
+
+    # The v1.15 tag accidentally retained pkgver=1.14 in its Arch PKGBUILD.
+    # Correct the package metadata in the disposable build tree.
+    sed -i "s/^pkgver=.*/pkgver=$midscroll_version/" \
+        "$build_directory/midscroll/packaging/arch/PKGBUILD"
+    (
+        cd "$build_directory/midscroll/packaging/arch"
+        makepkg --nodeps --clean --cleanbuild --noconfirm
+    )
+    midscroll_package=$(find \
+        "$build_directory/midscroll/packaging/arch" \
+        -maxdepth 1 \
+        -type f \
+        -name "midscroll-$midscroll_version-*.pkg.tar.zst" \
+        -print \
+        -quit)
+    if [[ -z $midscroll_package ]]; then
+        printf 'The midscroll %s package was not produced.\n' "$midscroll_version" >&2
+        exit 1
+    fi
+fi
+
+config_home=${XDG_CONFIG_HOME:-"$HOME/.config"}
+input_remapper_config="$config_home/input-remapper-2/config.json"
+python3 "$input_remapper_merger" "$input_remapper_policy" "$input_remapper_config"
+
+# A stopped injection cannot retain an evdev grab after the obsolete autoload
+# entries have been removed. Failure is harmless when the daemon is not running.
+if command -v input-remapper-control &>/dev/null; then
+    if ! input-remapper-control --command stop-all --config-dir "$(dirname "$input_remapper_config")"; then
+        printf 'Warning: input-remapper was not reachable; its autoload map is still cleared on disk.\n' >&2
+    fi
+fi
+
+# Remove both historical startup paths for xmousepasteblock. It is redundant
+# here and was running twice (systemd plus XDG autostart), creating another MMB
+# processor. The root stage below also uninstalls the package if it is present.
+systemctl --user disable --now xmousepasteblock.service 2>/dev/null || true
+systemctl --user stop app-xmousepasteblock@autostart.service 2>/dev/null || true
+pkill -x xmousepasteblock 2>/dev/null || true
+rm -f -- "$config_home/autostart/xmousepasteblock.desktop"
+systemctl --user daemon-reload
+
+# Retire the old hand-written browser stanzas. The maintained helper owns these
+# flags now and uses the quieter browser-specific feature switch.
+for browser_flags in \
+    "$config_home/chrome-flags.conf" \
+    "$config_home/chromium-flags.conf" \
+    "$config_home/brave-flags.conf"; do
+    [[ -f $browser_flags ]] || continue
+    cleaned_flags=$(mktemp)
+    sed \
+        -e '/^# Target-aware Windows-style click-to-toggle autoscroll inside .*\.$/d' \
+        -e '/^# System-wide hold-and-drag scrolling is provided by midscroll\.$/d' \
+        -e '/^--enable-blink-features=MiddleClickAutoscroll$/d' \
+        "$browser_flags" > "$cleaned_flags"
+    if cmp -s "$cleaned_flags" "$browser_flags"; then
+        rm -f -- "$cleaned_flags"
+    else
+        chmod --reference="$browser_flags" "$cleaned_flags"
+        mv -f -- "$cleaned_flags" "$browser_flags"
+    fi
+done
+
+# middleclick-autoscroll must edit autostart launchers in place. A symlink to a
+# root-owned system launcher cannot be edited as the desktop user, so make the
+# Mullvad autostart entry a normal user-owned copy before the helper sees it.
+mullvad_autostart="$config_home/autostart/mullvad-vpn.desktop"
+if [[ -L $mullvad_autostart ]] \
+    && [[ $(readlink -f "$mullvad_autostart") == /usr/share/applications/mullvad-vpn.desktop ]]; then
+    mullvad_copy=$(mktemp)
+    cp --dereference -- "$mullvad_autostart" "$mullvad_copy"
+    chmod 0644 "$mullvad_copy"
+    mv -f -- "$mullvad_copy" "$mullvad_autostart"
+fi
+
+# Keep the app-native half of the setup declarative as well. This enables
+# Blink's built-in Windows-style anchor and directional cursors in Chromium,
+# Electron, and CEF applications, and watches for newly installed apps.
+install -D -m 0644 \
+    "$middleclick_config" \
+    "$config_home/middleclick-autoscroll/config"
+middleclick-autoscroll enable
+
+pkexec "$script_path" --system "$midscroll_package"
+
+# The system daemon performs scrolling. This session service provides focused-
+# app reporting and, on Plasma Wayland, the anchor badge and ghost cursor.
+systemctl --user enable --now midscroll-overlay.service
+
+# Remove the short-lived custom X11 indicator from an earlier revision. Native
+# Blink autoscroll now provides the real UI instead of a lookalike overlay.
+legacy_indicator="$HOME/.local/libexec/midscroll-x11-indicator"
+legacy_indicator_unit="$config_home/systemd/user/midscroll-x11-indicator.service"
+if [[ -e $legacy_indicator || -e $legacy_indicator_unit ]]; then
+    systemctl --user disable --now midscroll-x11-indicator.service 2>/dev/null || true
+    rm -f -- "$legacy_indicator" "$legacy_indicator_unit"
+    systemctl --user daemon-reload
+fi
+
+printf '\nMouse configuration applied.\n'
+printf '  midscroll: enabled and running\n'
+printf '  native autoscroll: enabled for Chromium/Electron/CEF apps\n'
+printf '  input-remapper autoload: empty; running injections stopped\n'
+printf '  ignored virtual device: input-remapper mouse\n'
+if [[ ${XDG_SESSION_TYPE-} == wayland ]]; then
+    printf '  midscroll fallback overlay: enabled for this Plasma Wayland session\n'
+else
+    printf '  native apps show their built-in indicator; midscroll covers the rest\n'
+fi
+printf '  restart any open Chromium/Electron apps to load their native autoscroll flag\n'
