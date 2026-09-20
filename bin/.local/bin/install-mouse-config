@@ -3,10 +3,42 @@ set -euo pipefail
 
 script_path=$(readlink -f "${BASH_SOURCE[0]}")
 repo_root=$(cd "$(dirname "$script_path")/../../.." && pwd)
-midscroll_config="$repo_root/mouse/midscroll.conf"
+midscroll_config_template="$repo_root/mouse/midscroll.conf.in"
 input_remapper_policy="$repo_root/mouse/input-remapper-config.json"
 input_remapper_merger="$repo_root/mouse/apply-input-remapper-config.py"
 midscroll_version=1.15
+
+render_midscroll_config() {
+    local output=$1
+    local manifest app_class joined=
+    declare -A seen=()
+
+    for manifest in "$repo_root"/app-configs/*/midscroll-pass-through; do
+        [[ -f $manifest ]] || continue
+        while IFS= read -r app_class; do
+            app_class=${app_class%%#*}
+            app_class=${app_class#"${app_class%%[![:space:]]*}"}
+            app_class=${app_class%"${app_class##*[![:space:]]}"}
+            [[ -n $app_class ]] || continue
+            if [[ ! $app_class =~ ^[[:alnum:]_.-]+$ ]]; then
+                printf 'Invalid midscroll app class in %s: %s\n' \
+                    "$manifest" "$app_class" >&2
+                return 1
+            fi
+            [[ -z ${seen[$app_class]+set} ]] || continue
+            seen[$app_class]=1
+            joined+="${joined:+, }$app_class"
+        done < "$manifest"
+    done
+
+    if [[ -z $joined ]]; then
+        printf 'No app-specific midscroll pass-through classes were found.\n' >&2
+        return 1
+    fi
+
+    sed "s|@MIDSCROLL_PASS_THROUGH@|$joined|" \
+        "$midscroll_config_template" > "$output"
+}
 
 install_system_config() {
     if [[ $EUID -ne 0 ]]; then
@@ -24,6 +56,7 @@ install_system_config() {
     local conflicting_packages=()
     local app_installer
     local package
+    local rendered_config
 
     # midscroll or the application itself owns MMB. xmousepasteblock also
     # observes/blocks that button under X11 and must not run alongside them.
@@ -51,10 +84,13 @@ install_system_config() {
         changed=true
     fi
 
-    if ! cmp -s "$midscroll_config" /etc/midscroll.conf; then
-        install -o root -g root -m 0644 "$midscroll_config" /etc/midscroll.conf
+    rendered_config=$(mktemp)
+    render_midscroll_config "$rendered_config"
+    if ! cmp -s "$rendered_config" /etc/midscroll.conf; then
+        install -o root -g root -m 0644 "$rendered_config" /etc/midscroll.conf
         changed=true
     fi
+    rm -f -- "$rendered_config"
 
     for app_installer in "$repo_root"/app-configs/*/install-system; do
         [[ -x $app_installer ]] || continue
@@ -85,7 +121,7 @@ if [[ $EUID -eq 0 ]]; then
 fi
 
 for required_file in \
-    "$midscroll_config" \
+    "$midscroll_config_template" \
     "$input_remapper_policy" \
     "$input_remapper_merger"; do
     if [[ ! -f $required_file ]]; then

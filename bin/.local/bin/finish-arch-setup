@@ -8,10 +8,10 @@ fi
 
 script_path=$(readlink -f "${BASH_SOURCE[0]}")
 repo_root=$(cd "$(dirname "$script_path")/../../.." && pwd)
-sddm_config="$repo_root/system-configs/sddm/autologin.conf"
+sddm_installer="$repo_root/system-configs/sddm/install"
 
-if [[ ! -f $sddm_config ]]; then
-    printf 'Missing SDDM configuration: %s\n' "$sddm_config" >&2
+if [[ ! -x $sddm_installer ]]; then
+    printf 'Missing SDDM installer: %s\n' "$sddm_installer" >&2
     exit 1
 fi
 
@@ -21,14 +21,11 @@ pacman -Syu --needed --noconfirm \
     gamemode lib32-gamemode mangohud lib32-mangohud gamescope \
     qemu-base libvirt virt-manager dnsmasq edk2-ovmf \
     podman distrobox syncthing \
-    firewalld stow restic pacman-contrib \
-    xclip
+    firewalld stow restic pacman-contrib
 
 systemctl enable --now firewalld.service
 systemctl enable --now libvirtd.service
 usermod -aG libvirt tommy
-install -D -o root -g root -m 0644 \
-    "$sddm_config" \
-    /etc/sddm.conf.d/autologin.conf
+"$sddm_installer"
 
-printf '\nSystem packages and services are ready. The next login uses Plasma Wayland.\n'
+printf '\nSystem packages and services are ready. Only Plasma Wayland is available.\n'

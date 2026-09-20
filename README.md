@@ -54,10 +54,11 @@ installer data rather than files to link directly into `$HOME`.
    one app-aware fallback for everything else. It also clears obsolete
    input-remapper autoload mappings. It is safe to rerun.
 
-7. Reboot. SDDM is configured to start Plasma Wayland, KWin picks up the
-   managed shortcuts, and the new session acquires the `libvirt` group. A plain
-   logout is not sufficient for the first switch because SDDM's autologin
-   session choice is applied when the display manager starts.
+7. Reboot. SDDM itself and the desktop session both run on Wayland, KWin picks
+   up the managed shortcuts, and the new session acquires the `libvirt` group.
+   The Plasma X11 session is intentionally uninstalled, so it cannot be
+   selected accidentally. `xorg-xwayland` remains as the compatibility layer
+   required by legacy applications inside Plasma Wayland.
 
 ## Packages
 
@@ -77,7 +78,7 @@ installer data rather than files to link directly into `$HOME`.
   used by `install-mouse-config`
 - `app-configs` — independently installable application integrations
 - `system-configs` — root-owned declarative configuration installed by setup
-  scripts; the SDDM source selects Plasma Wayland for login
+  scripts; the SDDM source runs the greeter and Plasma session on Wayland
 
 The main `.bashrc` only contains a one-line loader for the managed shell
 fragment, preserving the older machine-specific functions and aliases.
@@ -118,18 +119,21 @@ this state idempotently:
   `styling/` module preserves usable gaps between message cards and a 32px
   right-hand gutter beside the scrollbar without changing the virtual list's
   fixed row height.
-- `mouse/midscroll.conf` is the routing table. Apps with working native
-  autoscroll are blacklisted (passed through); Thunderbird, terminals, and
-  other unsupported apps receive the fallback. `midscroll-overlay` reports the
-  focused app and draws the fallback marker on Plasma Wayland.
+- `mouse/midscroll.conf.in` is the shared fallback template. The installer
+  collects every `app-configs/*/midscroll-pass-through` manifest and renders one
+  routing table: declared apps are passed through, while Thunderbird, terminals,
+  and other unsupported apps receive the fallback. `midscroll-overlay` reports
+  the focused app and draws the fallback marker on Plasma Wayland.
 - input-remapper's autoload map is set to `{}` and current injections are
   stopped, removing the obsolete `disable-middle` device grabs.
 - `xmousepasteblock` is removed, leaving midscroll as the only service reading
   the physical middle button.
 
 Adding native support means adding a self-contained `app-configs/<name>/`
-module and that app's class to the midscroll blacklist. Adding fallback support
-requires no launcher patch: an app simply remains outside the blacklist.
+module with a `midscroll-pass-through` manifest. The generic renderer handles
+the global routing table; no central application list or new shell branch is
+needed. Adding fallback support requires no declaration: an app simply remains
+outside the generated pass-through list.
 
 After applying the configuration, fully restart affected applications. In
 Chrome/webmail and other supported Blink apps, verify that MMB on a link opens a

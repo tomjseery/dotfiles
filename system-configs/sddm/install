@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $EUID -ne 0 ]]; then
+    printf 'Run this installer with pkexec.\n' >&2
+    exit 2
+fi
+
+config_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+packages_to_remove=()
+
+for package in plasma-x11-session xclip; do
+    if pacman -Q "$package" &>/dev/null; then
+        packages_to_remove+=("$package")
+    fi
+done
+if (( ${#packages_to_remove[@]} )); then
+    pacman -Rns --noconfirm "${packages_to_remove[@]}"
+fi
+
+for config in "$config_dir"/*.conf; do
+    install -D -o root -g root -m 0644 \
+        "$config" \
+        "/etc/sddm.conf.d/${config##*/}"
+done
+
+printf 'SDDM and Plasma are configured for Wayland-only login.\n'
