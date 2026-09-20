@@ -6,6 +6,15 @@ if [[ $EUID -ne 0 ]]; then
     exit 2
 fi
 
+script_path=$(readlink -f "${BASH_SOURCE[0]}")
+repo_root=$(cd "$(dirname "$script_path")/../../.." && pwd)
+sddm_config="$repo_root/system-configs/sddm/autologin.conf"
+
+if [[ ! -f $sddm_config ]]; then
+    printf 'Missing SDDM configuration: %s\n' "$sddm_config" >&2
+    exit 1
+fi
+
 pacman -Syu --needed --noconfirm \
     zsh starship zoxide fzf bat eza btop fastfetch yazi \
     easyeffects lsp-plugins \
@@ -18,5 +27,8 @@ pacman -Syu --needed --noconfirm \
 systemctl enable --now firewalld.service
 systemctl enable --now libvirtd.service
 usermod -aG libvirt tommy
+install -D -o root -g root -m 0644 \
+    "$sddm_config" \
+    /etc/sddm.conf.d/autologin.conf
 
-printf '\nSystem packages and services are ready. Log out and back in to acquire the libvirt group.\n'
+printf '\nSystem packages and services are ready. The next login uses Plasma Wayland.\n'

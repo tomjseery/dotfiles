@@ -18,16 +18,29 @@ install_system_config() {
     local changed=false
     local official_dependencies=(
         python python-evdev python-gobject python-cairo gtk4
-        gtk4-layer-shell librsvg polkit xorg-xprop
+        gtk4-layer-shell librsvg polkit
     )
     local missing_dependencies=()
     local conflicting_packages=()
-    local app_installer
     local package
+
+    remove_managed_file() {
+        local target=$1
+        [[ -f $target ]] || return 0
+        if grep -Fqx '// Managed by https://github.com/tomjseery/dotfiles.' \
+            "$target" ||
+            grep -Fqx '/* Managed by https://github.com/tomjseery/dotfiles. */' \
+                "$target"; then
+            rm -f -- "$target"
+        fi
+    }
 
     # midscroll or the application itself owns MMB. xmousepasteblock also
     # observes/blocks that button under X11 and must not run alongside them.
-    for package in xmousepasteblock xmousepasteblock-debug; do
+    for package in \
+        middleclick-autoscroll \
+        xmousepasteblock \
+        xmousepasteblock-debug; do
         if pacman -Q "$package" &>/dev/null; then
             conflicting_packages+=("$package")
         fi
@@ -56,10 +69,17 @@ install_system_config() {
         changed=true
     fi
 
-    for app_installer in "$repo_root"/app-configs/*/install-system; do
-        [[ -x $app_installer ]] || continue
-        "$app_installer"
-    done
+    # Retire application-specific integrations from the earlier X11 design.
+    # Only remove files carrying this repository's managed names/content.
+    remove_managed_file \
+        /usr/lib/thunderbird/defaults/pref/tomjseery-autoscroll.js
+    remove_managed_file /usr/lib/thunderbird/tomjseery-autoscroll.cfg
+    remove_managed_file \
+        /usr/lib/thunderbird/tomjseery-thread-pane-autoscroll.js
+    remove_managed_file \
+        /usr/lib/thunderbird/defaults/profile/chrome/userChrome.css
+    remove_managed_file \
+        /usr/lib/thunderbird/defaults/profile/chrome/userContent.css
 
     systemctl enable midscroll.service
     if [[ $changed == true ]]; then
@@ -95,12 +115,6 @@ for required_file in \
 done
 
 aur_packages=(kdotool)
-for package_file in "$repo_root"/app-configs/*/aur-packages; do
-    [[ -f $package_file ]] || continue
-    while IFS= read -r package; do
-        [[ -n $package && $package != \#* ]] && aur_packages+=("$package")
-    done < "$package_file"
-done
 
 missing_aur_packages=()
 for package in "${aur_packages[@]}"; do
@@ -179,10 +193,26 @@ pkill -x xmousepasteblock 2>/dev/null || true
 rm -f -- "$config_home/autostart/xmousepasteblock.desktop"
 systemctl --user daemon-reload
 
-for app_installer in "$repo_root"/app-configs/*/install-user; do
-    [[ -x $app_installer ]] || continue
-    "$app_installer"
-done
+# Restore launchers patched by the retired Chromium/Electron helper before its
+# package is removed by the root stage.
+if command -v middleclick-autoscroll &>/dev/null; then
+    middleclick-autoscroll disable
+fi
+systemctl --user disable --now \
+    middleclick-autoscroll.path \
+    middleclick-autoscroll.service 2>/dev/null || true
+rm -rf -- "$config_home/middleclick-autoscroll"
+rm -f -- "$config_home/autostart/chrome-autoscroll-launcher-fix.desktop"
+
+# Remove the managed Thunderbird profile styles without touching user-owned
+# userChrome/userContent files.
+while IFS= read -r -d '' stylesheet; do
+    if grep -Fqx '/* Managed by https://github.com/tomjseery/dotfiles. */' \
+        "$stylesheet"; then
+        rm -f -- "$stylesheet"
+    fi
+done < <(find "$HOME/.thunderbird" -mindepth 3 -maxdepth 3 -type f \
+    \( -name userChrome.css -o -name userContent.css \) -print0 2>/dev/null)
 
 pkexec "$script_path" --system "$midscroll_package"
 
@@ -190,8 +220,8 @@ pkexec "$script_path" --system "$midscroll_package"
 # app reporting and, on Plasma Wayland, the anchor badge and ghost cursor.
 systemctl --user enable --now midscroll-overlay.service
 
-# Remove the short-lived custom X11 indicator from an earlier revision. Native
-# Blink autoscroll now provides the real UI instead of a lookalike overlay.
+# Remove the short-lived custom X11 indicator from an earlier revision. Plasma
+# Wayland uses midscroll's supported overlay instead.
 legacy_indicator="$HOME/.local/libexec/midscroll-x11-indicator"
 legacy_indicator_unit="$config_home/systemd/user/midscroll-x11-indicator.service"
 if [[ -e $legacy_indicator || -e $legacy_indicator_unit ]]; then
@@ -202,15 +232,11 @@ fi
 
 printf '\nMouse configuration applied.\n'
 printf '  midscroll: enabled and running\n'
-printf '  native autoscroll: enabled for Chromium/Electron/CEF apps\n'
-if pacman -Q thunderbird &>/dev/null; then
-    printf '  Thunderbird: native Gecko autoscroll configured for every profile\n'
-fi
+printf '  MMB owner: midscroll across normal desktop applications\n'
 printf '  input-remapper autoload: empty; running injections stopped\n'
 printf '  ignored virtual device: input-remapper mouse\n'
 if [[ ${XDG_SESSION_TYPE-} == wayland ]]; then
-    printf '  midscroll fallback overlay: enabled for this Plasma Wayland session\n'
+    printf '  anchor and cursor overlay: enabled for this Plasma Wayland session\n'
 else
-    printf '  native apps show their built-in indicator; midscroll covers the rest\n'
+    printf '  warning: log in to Plasma (Wayland) to display the overlay\n'
 fi
-printf '  restart open native-autoscroll apps to load updated configuration\n'
