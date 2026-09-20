@@ -89,7 +89,30 @@ those through `RESTIC_REPOSITORY` and `RESTIC_PASSWORD_FILE` (or
 
 `finish-arch-setup` performs the root-owned package and service stage. It is
 kept separate so administrator authentication never needs to pass through an
-automation session. It also installs the canonical SDDM Wayland-session choice.
+automation session. It also installs the canonical SDDM Wayland-session choice
+and the Chrome enterprise policy below.
+
+`system-configs/sddm/install` also patches `/etc/pam.d/sddm` so KWallet
+auto-unlocks at login instead of prompting separately: Plasma 6 renamed the
+wallet daemon to `ksecretd`, but `pam_kwallet5`'s default `auto_start` target
+still points at the old `kwalletd5` binary, which no longer exists on this
+system, so the patch adds `kwalletd=/usr/bin/ksecretd` explicitly. The wallet
+password must also match the login password for this to actually unlock it
+(set that once in KWallet's own settings; it isn't something a dotfile can
+carry, per the credentials exclusion below).
+
+`system-configs/chrome-policy` installs a machine-wide Chrome enterprise
+policy (`QuicAllowed: false`) disabling QUIC/HTTP-3. QUIC runs over UDP, and
+the Mullvad WireGuard tunnel this machine routes through drops/fragments QUIC
+badly enough that Chrome hangs indefinitely retrying it (most visibly on
+YouTube, whose video CDN opens a fresh QUIC connection per edge server) rather
+than falling back to TCP promptly. Disabling it machine-wide costs a small
+amount of latency on QUIC-capable sites in exchange for not hanging.
+
+`app-configs/chromium/install-user` also writes `--password-store=basic` to
+`~/.config/chrome-flags.conf`, so Chrome manages its own credential storage
+instead of depending on the desktop keyring (KWallet) — a locked or
+misconfigured wallet must never be able to hang the browser.
 
 `packages/aur-packages.txt` lists restorable AUR packages (it is not a Stow
 package itself). Application integrations can also declare required AUR

@@ -13,3 +13,12 @@ fi
 
 install -D -m 0644 "$source_config" "$target_config"
 middleclick-autoscroll enable
+
+# KWallet being locked/misconfigured must never be able to hang Chrome again:
+# keep Chrome on its own internal credential store instead of the desktop
+# keyring.
+chrome_flags="$config_home/chrome-flags.conf"
+touch "$chrome_flags"
+if ! grep -q '^--password-store=basic$' "$chrome_flags"; then
+    printf -- '--password-store=basic\n' >> "$chrome_flags"
+fi

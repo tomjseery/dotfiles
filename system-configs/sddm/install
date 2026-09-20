@@ -24,4 +24,14 @@ for config in "$config_dir"/*.conf; do
         "/etc/sddm.conf.d/${config##*/}"
 done
 
+# Plasma 6 renamed the wallet secret-service daemon to ksecretd; pam_kwallet5's
+# default auto_start target still points at the old kwalletd5 binary, which no
+# longer exists, so login never actually auto-unlocks KWallet without this.
+pam_sddm=/etc/pam.d/sddm
+if [[ -f $pam_sddm ]] && ! grep -q 'kwalletd=/usr/bin/ksecretd' "$pam_sddm"; then
+    sed -i \
+        's|^\(-session[[:space:]]\+optional[[:space:]]\+pam_kwallet5\.so[[:space:]]\+auto_start\)$|\1 kwalletd=/usr/bin/ksecretd|' \
+        "$pam_sddm"
+fi
+
 printf 'SDDM and Plasma are configured for Wayland-only login.\n'

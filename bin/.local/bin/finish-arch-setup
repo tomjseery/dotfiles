@@ -9,9 +9,14 @@ fi
 script_path=$(readlink -f "${BASH_SOURCE[0]}")
 repo_root=$(cd "$(dirname "$script_path")/../../.." && pwd)
 sddm_installer="$repo_root/system-configs/sddm/install"
+chrome_policy_installer="$repo_root/system-configs/chrome-policy/install"
 
 if [[ ! -x $sddm_installer ]]; then
     printf 'Missing SDDM installer: %s\n' "$sddm_installer" >&2
+    exit 1
+fi
+if [[ ! -x $chrome_policy_installer ]]; then
+    printf 'Missing Chrome policy installer: %s\n' "$chrome_policy_installer" >&2
     exit 1
 fi
 
@@ -27,5 +32,6 @@ systemctl enable --now firewalld.service
 systemctl enable --now libvirtd.service
 usermod -aG libvirt tommy
 "$sddm_installer"
+"$chrome_policy_installer"
 
 printf '\nSystem packages and services are ready. Only Plasma Wayland is available.\n'

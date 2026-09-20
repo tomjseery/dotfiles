@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $EUID -ne 0 ]]; then
+    printf 'Run this installer with pkexec.\n' >&2
+    exit 2
+fi
+
+config_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+install -D -o root -g root -m 0644 \
+    "$config_dir/disable_quic.json" \
+    /etc/opt/chrome/policies/managed/disable_quic.json
+
+printf 'Chrome policy installed: QUIC/HTTP-3 disabled machine-wide.\n'
