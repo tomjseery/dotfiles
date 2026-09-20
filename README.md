@@ -1,8 +1,8 @@
 # tomjseery's Arch Linux dotfiles
 
 Managed primarily with GNU Stow. User-config folders are independent Stow
-packages; `mouse/`, `system-configs/`, and `packages/` are installer data rather
-than files to link directly into `$HOME`.
+packages; `mouse/`, `app-configs/`, `system-configs/`, and `packages/` are
+installer data rather than files to link directly into `$HOME`.
 
 ## Setting up a new machine
 
@@ -50,9 +50,9 @@ than files to link directly into `$HOME`.
    bin/.local/bin/install-mouse-config
    ```
 
-   It installs midscroll as the single system-wide MMB handler, then uses a
-   graphical administrator prompt to install `/etc/midscroll.conf` and enable
-   the service. It is safe to rerun.
+   It removes retired global middle-button grabs, enables applications' native
+   autoscroll features, and clears obsolete input-remapper autoload mappings.
+   It is safe to rerun.
 
 7. Reboot. SDDM is configured to start Plasma Wayland, KWin picks up the
    managed shortcuts, and the new session acquires the `libvirt` group. A plain
@@ -73,9 +73,10 @@ than files to link directly into `$HOME`.
   cache, or workspace storage)
 - `vesktop` — Vencord theme/QuickCSS only (no session data, tokens, or
   Crashpad/session folders — those never leave the live machine)
-- `mouse` — source configuration for system-wide Windows-style middle-click
-  autoscroll and the input-remapper conflict policy (applied by
-  `install-mouse-config`, not Stow)
+- `mouse` — shared input-remapper conflict policy used by
+  `install-mouse-config`
+- `app-configs` — independently installable application integrations; each app
+  owns its native behavior instead of competing global mouse services
 - `system-configs` — root-owned declarative configuration installed by setup
   scripts; the SDDM source selects Plasma Wayland for login
 
@@ -90,77 +91,60 @@ those through `RESTIC_REPOSITORY` and `RESTIC_PASSWORD_FILE` (or
 kept separate so administrator authentication never needs to pass through an
 automation session. It also installs the canonical SDDM Wayland-session choice.
 
-`packages/aur-packages.txt` lists restorable AUR packages (it is not a stow
-package itself). The locally built `midscroll` package is intentionally absent;
-`install-mouse-config` builds the pinned release itself in step 6.
+`packages/aur-packages.txt` lists restorable AUR packages (it is not a Stow
+package itself). Application integrations can also declare required AUR
+packages in their own `app-configs/<name>/aur-packages` manifest.
 
 ## Mouse and middle-click autoscroll
 
-`mouse/midscroll.conf` is the source of truth for `/etc/midscroll.conf`.
-`install-mouse-config` is safe to rerun and restores one deliberately simple
-Wayland design:
+Linux has no desktop-wide Windows autoscroll protocol. Exact behavior requires
+application context: only the application knows whether MMB landed on a link,
+a tab, a message, or empty scrollable content. The canonical configuration
+therefore uses native application features and deliberately has no service
+that grabs the physical mouse.
 
-- midscroll is the single MMB owner in browsers, Electron apps, Thunderbird,
-  terminals, and ordinary desktop applications;
-- holding MMB and moving beyond the dead zone starts Windows-style autoscroll,
-  while a quick middle click is replayed to the application so links still
-  open in new tabs, terminal paste still works, and application actions are
-  preserved;
-- the Wayland session helper draws midscroll's official anchor badge and ghost
-  cursor during an autoscroll drag;
-- only applications that intentionally use native middle-drag are blacklisted
-  (`freecad`, `orcaslicer`, and `minecraft`);
-- ordinary left and right clicks pass through unchanged while autoscroll is
-  idle; as on Windows, a click made during autoscroll stops it without also
-  activating whatever is under the pointer;
+`install-mouse-config` discovers app modules under `app-configs/` and restores
+this state idempotently:
+
+- `app-configs/chromium/` installs and configures `middleclick-autoscroll`. It
+  enables Blink's built-in `MiddleClickAutoscroll` feature in Chrome, Chromium,
+  Electron, and CEF applications and watches for newly installed apps. Chrome
+  itself keeps link/tab hit-testing and draws its genuine autoscroll cursor.
+- `app-configs/thunderbird/` installs Mozilla AutoConfig preferences for every
+  existing and future Thunderbird profile. Gecko provides native autoscroll in
+  rendered message content while retaining its own link and tab behavior.
+  Thunderbird chrome widgets such as the message list do not all implement the
+  Gecko autoscroll actor; this is an upstream application boundary, not papered
+  over with pointer-event CSS or a second input service.
 - input-remapper's autoload map is set to `{}` and current injections are
-  stopped, so its old `disable-middle` presets do not grab either the Razer
-  DeathAdder or Rainy 75 mouse interface;
-- the redundant `xmousepasteblock` systemd and XDG-autostart instances are
-  stopped and the package is removed, eliminating another competing MMB hook;
-- the virtual `input-remapper mouse` device is explicitly ignored by
-  midscroll, preventing a virtual-device grab loop;
-- `midscroll-overlay.service` starts with Plasma Wayland and draws the official
-  overlay; no application launchers, browser flags, Thunderbird chrome, or
-  synthetic X11 indicator are installed.
+  stopped, removing the obsolete `disable-middle` device grabs.
+- `midscroll`, `midscroll-overlay`, and `xmousepasteblock` are disabled and
+  removed so exactly zero global services intercept MMB.
 
-The installer also removes those retired integrations if they exist from an
-older checkout: `middleclick-autoscroll`, its patched launchers and watcher,
-the managed Thunderbird AutoConfig/stylesheets, and `xmousepasteblock`.
+Apps without a native autoscroll implementation keep their ordinary MMB action.
+Adding support means adding a self-contained `app-configs/<name>/` module; it
+must not introduce another global middle-button owner.
 
-After applying the configuration, test a long page in Chrome/webmail, a long
-message in Thunderbird, a VS Code editor, Konsole/Kitty scrollback, and another
-native KDE application:
-
-1. A quick middle click on a link opens it in a new tab; a quick middle click
-   still performs the application's normal MMB action elsewhere.
-2. Holding MMB and moving beyond the dead zone starts autoscroll; moving
-   farther from the anchor changes speed and direction, and releasing MMB
-   stops it.
-3. Normal left/right clicks still activate their targets.
-4. The midscroll anchor remains fixed while its ghost cursor follows the mouse.
-5. `printf '%s\n' "$XDG_SESSION_TYPE"` prints `wayland`; an X11 login still
-   scrolls but cannot display midscroll's overlay.
+After applying the configuration, fully restart affected applications. In
+Chrome/webmail and other supported Blink apps, verify that MMB on a link opens a
+new tab and MMB on scrollable empty content starts the native arrow cursor. In
+Thunderbird, test inside a long rendered message. Ordinary left/right clicks
+and native middle-click actions must remain unchanged.
 
 Diagnostics:
 
 ```sh
-systemctl status midscroll.service
-systemctl --user status midscroll-overlay.service
-journalctl -u midscroll.service -b
-journalctl --user -u midscroll-overlay.service -b
-pkexec midscroll --list-devices
+middleclick-autoscroll status
+middleclick-autoscroll list
+systemctl --user status middleclick-autoscroll.path
+systemctl is-active midscroll.service
+systemctl --user is-active midscroll-overlay.service
 ```
 
-Recovery is deliberately simple. Stop autoscroll temporarily with
-`pkexec systemctl stop midscroll.service`; restore it by rerunning
-`install-mouse-config`. To remove it, run
-`pkexec systemctl disable --now midscroll.service`,
-then `systemctl --user disable --now midscroll-overlay.service`.
-
-The retained input-remapper preset files can be enabled again manually only
-after midscroll is removed, but never enable the old `disable-middle` autoload
-entries while midscroll is running.
+Recovery is deliberately simple: `middleclick-autoscroll disable` restores the
+launchers and flag files recorded in its ledger. Rerun `install-mouse-config`
+to restore the repository state. Do not re-enable the old input-remapper
+`disable-middle` autoload entries.
 
 ## Things deliberately kept out of this repo
 

@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $EUID -ne 0 ]]; then
+    printf 'Thunderbird system integration must run as root.\n' >&2
+    exit 2
+fi
+
+integration_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source_dir="$integration_dir/middle-click-autoscroll"
+caller_source="$source_dir/autoconfig.js"
+config_source="$source_dir/thunderbird.cfg"
+
+[[ -d /usr/lib/thunderbird/defaults/pref ]] || exit 0
+
+install -o root -g root -m 0644 \
+    "$caller_source" \
+    /usr/lib/thunderbird/defaults/pref/tomjseery-autoscroll.js
+install -o root -g root -m 0644 \
+    "$config_source" \
+    /usr/lib/thunderbird/tomjseery-autoscroll.cfg
+
+# Remove only obsolete files previously managed by this repository.
+for obsolete in \
+    /usr/lib/thunderbird/tomjseery-thread-pane-autoscroll.js \
+    /usr/lib/thunderbird/defaults/profile/chrome/userChrome.css \
+    /usr/lib/thunderbird/defaults/profile/chrome/userContent.css; do
+    if [[ -f $obsolete ]] &&
+        grep -Fqx '/* Managed by https://github.com/tomjseery/dotfiles. */' \
+            "$obsolete"; then
+        rm -f -- "$obsolete"
+    fi
+done

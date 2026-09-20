@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+integration_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+source_config="$integration_dir/middle-click-autoscroll.conf"
+config_home=${XDG_CONFIG_HOME:-"$HOME/.config"}
+target_config="$config_home/middleclick-autoscroll/config"
+
+if ! command -v middleclick-autoscroll &>/dev/null; then
+    printf 'middleclick-autoscroll is required for Chromium integration.\n' >&2
+    exit 1
+fi
+
+install -D -m 0644 "$source_config" "$target_config"
+middleclick-autoscroll enable
