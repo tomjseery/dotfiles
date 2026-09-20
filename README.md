@@ -118,6 +118,7 @@ state, input-remapper policy, and one owner for each middle click:
 - Thunderbird is configured through Mozilla AutoConfig and excluded from
   midscroll, giving every existing or future mail profile Gecko's native
   autoscroll UI while disabling Linux middle-click paste inside Thunderbird;
+  traditional scrollbars stay visible so scrollable panes are identifiable;
 - midscroll uses click-to-toggle mode as the system-wide fallback in terminals
   and native desktop applications that do not implement autoscroll themselves;
 - ordinary left and right clicks pass through unchanged while autoscroll is
@@ -156,6 +157,11 @@ native KDE application:
    the anchor.
 5. In terminals and other fallback apps, scrolling works even though X11 has
    no midscroll fallback marker.
+
+Thunderbird's native autoscroll operates in rendered message/web content. Its
+message-list pane deliberately assigns middle click to opening a message, so
+test the native anchor inside a long message or another scrollable page in the
+right-hand content pane.
 
 Diagnostics:
 
