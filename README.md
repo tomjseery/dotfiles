@@ -150,13 +150,12 @@ this state idempotently:
   routing table: declared apps are passed through, while Thunderbird, terminals,
   and other unsupported apps receive the fallback. The repo-managed
   `midscroll-pointer-overlay` reports the window under the pointer on Plasma
-  Wayland, even when another app still has keyboard focus. An optional
-  repo-managed KWin effect can switch KWin's normal pointer to directional
-  arrows from the active cursor theme during fallback scrolling. It is
-  currently disabled in `kde/.config/kwinrc` after compositor crashes; the
-  upstream overlay remains the visible recovery indicator on the next login.
-  If the effect is later re-enabled and a theme lacks these arrow shapes, it
-  uses Breeze arrows. A pacman hook
+  Wayland, even when another app still has keyboard focus. A repo-managed
+  KWin effect switches KWin's normal pointer to directional arrows from the
+  active cursor theme during fallback scrolling. It is enabled in
+  `kde/.config/kwinrc`; if the effect cannot load, the upstream overlay is the
+  visible recovery indicator when its helper starts. If a theme lacks these
+  arrow shapes, the effect uses Breeze arrows. A pacman hook
   rebuilds the effect after KWin upgrades because plugins must match KWin's
   exact version. Effect updates are atomically staged for the next Plasma
   login; the installer never unloads an effect from a running KWin session.
@@ -172,10 +171,10 @@ this state idempotently:
 
 The old effect reproducibly corrupted KWin's heap when unloaded during an
 active scroll. The revised effect keeps its cursor source alive until KWin's
-cursor is destroyed and never mutates KWin's cursor from its destructor; it
+cursor is destroyed and never mutates KWin's cursor from its destructor. It
 survived the same unload test and 1,000 scroll transitions in an isolated
-virtual compositor. This is not a substitute for a controlled real-session
-test, so automatic activation remains off.
+virtual compositor, then repeated real-session scrolling in Kitty and
+Thunderbird. The installer never live-unloads KWin effects.
 
 Adding native support means adding a self-contained `app-configs/<name>/`
 module with a `midscroll-pass-through` manifest. The generic renderer handles
