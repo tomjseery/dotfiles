@@ -5,7 +5,7 @@ Rows=1
 
 [Plugins]
 blurEnabled=true
-midscrollcursorEnabled=true
+midscrollcursorEnabled=false
 
 [Tiling]
 padding=4

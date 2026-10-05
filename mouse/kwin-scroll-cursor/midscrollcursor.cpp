@@ -12,7 +12,6 @@
 #include <QTimer>
 
 #include <cmath>
-#include <memory>
 
 namespace KWin
 {
@@ -25,6 +24,10 @@ public:
     MidscrollCursorEffect()
         : m_cursor(Cursors::self()->mouse())
     {
+        // Cursor::setSource() only stores a raw pointer. Keep this source
+        // alive for the cursor's whole lifetime, not just one scroll, so a
+        // queued paint cannot observe an object freed at scroll end.
+        m_override = new ShapeCursorSource(m_cursor.data());
         m_retry.setInterval(2000);
         connect(&m_retry, &QTimer::timeout, this, [this]() { connectSocket(); });
         connect(&m_socket, &QLocalSocket::readyRead, this, [this]() { readSocket(); });
@@ -32,14 +35,14 @@ public:
             setScrolling(false);
             m_input.clear();
         });
-        connect(m_cursor, &Cursor::posChanged, this, [this]() { updateDirection(); });
-        connect(m_cursor, &Cursor::cursorChanged, this, [this]() {
+        connect(m_cursor.data(), &Cursor::posChanged, this, [this]() { updateDirection(); });
+        connect(m_cursor.data(), &Cursor::cursorChanged, this, [this]() {
             // KWin may change the client cursor while crossing windows. Keep
             // the override only during this scroll, and remember the latest
             // client cursor so it can be restored when scrolling stops.
-            if (m_scrolling && m_override && m_cursor->source() != m_override.get()) {
+            if (m_scrolling && m_override && m_cursor->source() != m_override.data()) {
                 m_original = m_cursor->source();
-                m_cursor->setSource(m_override.get());
+                m_cursor->setSource(m_override.data());
             }
         });
         connect(effects, &EffectsHandler::screenLockingChanged, this,
@@ -54,7 +57,13 @@ public:
 
     ~MidscrollCursorEffect() override
     {
-        setScrolling(false);
+        // The cursor source belongs to Cursor, not this unloadable effect.
+        // Do not mutate Cursor during effect destruction: KWin may be in the
+        // middle of dispatching an effect/cursor signal at that point.
+        disconnect(&m_socket, nullptr, this, nullptr);
+        if (m_cursor) {
+            disconnect(m_cursor.data(), nullptr, this, nullptr);
+        }
     }
 
     // This effect changes only the normal pointer image; it does not paint.
@@ -97,15 +106,15 @@ private:
 
     void setScrolling(bool scrolling)
     {
-        if (scrolling == m_scrolling || (scrolling && effects->isScreenLocked())) {
+        if (!m_cursor || !m_override || scrolling == m_scrolling
+            || (scrolling && effects->isScreenLocked())) {
             return;
         }
         if (!scrolling) {
             m_scrolling = false;
-            if (m_override && m_cursor->source() == m_override.get()) {
+            if (m_cursor->source() == m_override.data()) {
                 m_cursor->setSource(m_original.data());
             }
-            m_override.reset();
             m_original.clear();
             return;
         }
@@ -122,19 +131,18 @@ private:
         if (m_theme.shape("up-arrow").isEmpty()) {
             return;
         }
-        m_override = std::make_unique<ShapeCursorSource>();
         m_override->setTheme(m_theme);
         m_override->setShape(QByteArrayLiteral("up-arrow"));
         m_original = m_cursor->source();
         m_origin = m_cursor->pos();
         m_direction = 0;
         m_scrolling = true;
-        m_cursor->setSource(m_override.get());
+        m_cursor->setSource(m_override.data());
     }
 
     void updateDirection()
     {
-        if (!m_scrolling || !m_override) {
+        if (!m_scrolling || !m_cursor || !m_override) {
             return;
         }
         const QPointF delta = m_cursor->pos() - m_origin;
@@ -158,12 +166,12 @@ private:
         }
     }
 
-    Cursor *m_cursor;
+    QPointer<Cursor> m_cursor;
     QLocalSocket m_socket;
     QTimer m_retry;
     QByteArray m_input;
     CursorTheme m_theme;
-    std::unique_ptr<ShapeCursorSource> m_override;
+    QPointer<ShapeCursorSource> m_override;
     QPointer<CursorSource> m_original;
     QPointF m_origin;
     int m_direction = 0;

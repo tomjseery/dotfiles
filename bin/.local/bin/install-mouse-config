@@ -298,7 +298,12 @@ fi
 printf '  input-remapper autoload: empty; running injections stopped\n'
 printf '  ignored virtual device: input-remapper mouse\n'
 if [[ ${XDG_SESSION_TYPE-} == wayland ]]; then
-    printf '  KWin fallback scroll cursor: enabled; old badge remains as recovery\n'
+    if [[ $(kreadconfig6 --file kwinrc --group Plugins \
+        --key midscrollcursorEnabled) == true ]]; then
+        printf '  KWin fallback scroll cursor: enabled; old badge remains as recovery\n'
+    else
+        printf '  KWin fallback scroll cursor: disabled for next login; old badge is the recovery indicator\n'
+    fi
 else
     printf '  native apps show their built-in indicator; midscroll covers the rest\n'
 fi

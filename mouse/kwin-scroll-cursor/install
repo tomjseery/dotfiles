@@ -62,14 +62,9 @@ if ! cmp -s "$plugin_source" "$plugin_target"; then
         printf 'The root-owned effect source is out of date; rerun install-mouse-config.\n' >&2
         exit 1
     fi
-    printf 'Updated effect on disk; it will load at the next Plasma login.\n'
+    printf 'Updated effect on disk; it can load at a later Plasma login if enabled.\n'
 fi
 
-# Stow carries this key in kde/.config/kwinrc; also converge when this module
-# is installed on its own, before the kde package has been stowed.
-if [[ $(kreadconfig6 --file kwinrc --group Plugins \
-    --key midscrollcursorEnabled) != true ]]; then
-    kwriteconfig6 --file kwinrc --group Plugins \
-        --key midscrollcursorEnabled true
-fi
-printf 'KWin midscroll cursor: enabled for login; running compositor untouched.\n'
+# The repo's kwinrc is the activation policy. Do not silently re-enable an
+# effect that was disabled after a compositor crash.
+printf 'KWin midscroll cursor: built on disk; activation follows kwinrc at next login.\n'
