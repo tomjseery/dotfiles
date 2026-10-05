@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $EUID -eq 0 ]]; then
+    printf 'Run this installer as your desktop user; it opens a KDE administrator prompt when needed.\n' >&2
+    exit 2
+fi
+
+test_mode=false
+if [[ ${1-} == --test && $# -eq 1 ]]; then
+    test_mode=true
+elif [[ ${1-} == --disable && $# -eq 1 ]]; then
+    # KWin has crashed during live effect unload. Only change next-login
+    # state; never call unloadEffect against the running compositor.
+    kwriteconfig6 --file kwinrc --group Plugins \
+        --key midscrollcursorEnabled false
+    printf 'KWin midscroll cursor disabled for the next login. The running effect was not touched.\n'
+    exit 0
+elif [[ $# -ne 0 ]]; then
+    printf 'usage: %s [--test|--disable]\n' "${0##*/}" >&2
+    exit 2
+fi
+
+if [[ ${XDG_SESSION_TYPE-} != wayland ]]; then
+    exit 0
+fi
+
+source_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+build_dir="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/midscrollcursor-build"
+plugin_source="$build_dir/lib/kwin/effects/plugins/midscrollcursor.so"
+plugin_target=/usr/lib/qt6/plugins/kwin/effects/plugins/midscrollcursor.so
+
+dependencies=(cmake ninja gcc kwin extra-cmake-modules kcoreaddons kconfig qt6-base)
+missing=()
+for package in "${dependencies[@]}"; do
+    if ! pacman -Q "$package" &>/dev/null; then
+        missing+=("$package")
+    fi
+done
+if (( ${#missing[@]} )); then
+    pkexec pacman -S --needed --noconfirm "${missing[@]}"
+fi
+
+cmake -S "$source_dir" -B "$build_dir" -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build "$build_dir" --parallel 2
+
+if [[ $test_mode == true ]]; then
+    printf 'KWin midscroll cursor: build passed; running compositor was not touched.\n'
+    exit 0
+fi
+
+if ! cmp -s "$plugin_source" "$plugin_target"; then
+    # The root-owned rebuild script atomically renames the new .so into place.
+    # Replacing a loaded plugin in place, or unloading it live, can crash KWin.
+    rebuild_script=/usr/local/libexec/midscrollcursor-rebuild
+    if [[ ! -x $rebuild_script ]]; then
+        printf 'Run install-mouse-config first to install the root-owned rebuild script.\n' >&2
+        exit 1
+    fi
+    pkexec "$rebuild_script"
+    if ! cmp -s "$plugin_source" "$plugin_target"; then
+        printf 'The root-owned effect source is out of date; rerun install-mouse-config.\n' >&2
+        exit 1
+    fi
+    printf 'Updated effect on disk; it will load at the next Plasma login.\n'
+fi
+
+# Stow carries this key in kde/.config/kwinrc; also converge when this module
+# is installed on its own, before the kde package has been stowed.
+if [[ $(kreadconfig6 --file kwinrc --group Plugins \
+    --key midscrollcursorEnabled) != true ]]; then
+    kwriteconfig6 --file kwinrc --group Plugins \
+        --key midscrollcursorEnabled true
+fi
+printf 'KWin midscroll cursor: enabled for login; running compositor untouched.\n'

@@ -1,0 +1,79 @@
+#!/usr/bin/env python3
+"""Run midscroll's overlay with pass-through based on the pointer target.
+
+The packaged helper reports keyboard focus. On Plasma Wayland, a middle-click
+can land in Chrome while another window still has keyboard focus; midscroll
+then steals the click and draws its own badge instead of Chrome's arrow cursor.
+Keep the packaged drawing/socket code, but report KWin's window under the
+pointer so the existing BLACKLIST applies to the app receiving the click.
+"""
+
+import importlib.machinery
+import importlib.util
+import subprocess
+
+
+def load_overlay():
+    loader = importlib.machinery.SourceFileLoader(
+        "midscroll_overlay", "/usr/bin/midscroll-overlay"
+    )
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    overlay = importlib.util.module_from_spec(spec)
+    loader.exec_module(overlay)
+    return overlay
+
+
+def pointer_window_class():
+    try:
+        result = subprocess.run(
+            ["kdotool", "getmouselocation", "getwindowclassname"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    # kdotool prints the location first, followed by the window class.
+    lines = result.stdout.splitlines()
+    if result.returncode or len(lines) < 2:
+        return ""
+    return lines[-1].strip()
+
+
+def compositor_cursor_loaded():
+    """Use the old badge if KWin could not load our moving-arrow effect."""
+    try:
+        result = subprocess.run(
+            ["busctl", "--user", "call", "org.kde.KWin", "/Effects",
+             "org.kde.kwin.Effects", "isEffectLoaded", "s", "midscrollcursor"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return result.returncode == 0 and result.stdout.strip() == "b true"
+
+
+def main():
+    overlay = load_overlay()
+    if getattr(overlay, "WAYLAND", False):
+        overlay.active_window_class = pointer_window_class
+        # The packaged one-second keyboard-focus poll can retain a stale
+        # class after the pointer enters another app. Half a second makes
+        # that window shorter without excessive kdotool process churn.
+        overlay.FOCUS_POLL_SEC = 0.5
+        if compositor_cursor_loaded() and callable(
+            getattr(overlay, "watch_socket", None)
+        ):
+            # KWin draws the actual moving pointer; keep this helper only for
+            # pass-through class reports. No stationary badge or ghost cursor.
+            overlay.watch_socket(None)
+            return
+    overlay.main()
+
+
+if __name__ == "__main__":
+    main()

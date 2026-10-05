@@ -123,8 +123,8 @@ packages in their own `app-configs/<name>/aur-packages` manifest.
 Linux has no desktop-wide Windows autoscroll protocol. Exact behavior requires
 application context: only the application knows whether MMB landed on a link,
 a tab, a message, or empty scrollable content. The canonical configuration
-therefore routes behavior by focused application: native-capable apps receive
-MMB unchanged, while one midscroll service handles unsupported apps.
+therefore routes behavior by the application under the pointer: native-capable
+apps receive MMB unchanged, while one midscroll service handles unsupported apps.
 
 `install-mouse-config` discovers app modules under `app-configs/` and restores
 this state idempotently:
@@ -133,8 +133,11 @@ this state idempotently:
   enables Blink's built-in `MiddleClickAutoscroll` feature in Chrome, Chromium,
   Electron, and CEF applications and watches for newly installed apps. Chrome
   itself keeps link/tab hit-testing and draws its genuine autoscroll cursor.
-  Those application classes are in midscroll's `BLACKLIST`, which means
-  pass-through here rather than disabled functionality.
+  The declared application classes are in midscroll's `BLACKLIST`, which means
+  pass-through here rather than disabled functionality. When the watcher picks
+  up a *new* app, add its window class to the Chromium module's
+  `midscroll-pass-through` manifest too; upstream's desktop-app discovery and
+  midscroll's window-class matching do not share an identifier.
 - `app-configs/thunderbird/` installs Mozilla AutoConfig preferences for every
   existing and future Thunderbird profile. Thunderbird is deliberately not in
   midscroll's blacklist because Gecko's native actor does not cover the message
@@ -145,8 +148,22 @@ this state idempotently:
 - `mouse/midscroll.conf.in` is the shared fallback template. The installer
   collects every `app-configs/*/midscroll-pass-through` manifest and renders one
   routing table: declared apps are passed through, while Thunderbird, terminals,
-  and other unsupported apps receive the fallback. `midscroll-overlay` reports
-  the focused app and draws the fallback marker on Plasma Wayland.
+  and other unsupported apps receive the fallback. The repo-managed
+  `midscroll-pointer-overlay` reports the window under the pointer on Plasma
+  Wayland, even when another app still has keyboard focus. A repo-managed KWin
+  effect switches KWin's normal pointer to directional arrows from the active
+  cursor theme during fallback scrolling, so Thunderbird and terminals no
+  longer show midscroll's dark circle. If a theme lacks these arrow shapes,
+  the effect uses Breeze arrows. If the effect cannot load, the upstream
+  overlay remains the recovery indicator when its helper starts. A pacman hook
+  rebuilds the effect after KWin upgrades because plugins must match KWin's
+  exact version. Effect updates are atomically staged for the next Plasma
+  login; the installer never unloads an effect from a running KWin session.
+  The pointer reporter uses the packaged midscroll overlay's
+  internal socket loop; check it after midscroll upgrades. Pointer routing is
+  polled every 0.5
+  seconds, so a click immediately after moving into a window can still race the
+  next report.
 - input-remapper's autoload map is set to `{}` and current injections are
   stopped, removing the obsolete `disable-middle` device grabs.
 - `xmousepasteblock` is removed, leaving midscroll as the only service reading
@@ -162,8 +179,9 @@ After applying the configuration, fully restart affected applications. In
 Chrome/webmail and other supported Blink apps, verify that MMB on a link opens a
 new tab and MMB on scrollable empty content starts the native arrow cursor. In
 Thunderbird, verify MMB in the message-list gutter starts fallback scrolling.
-On X11 the fallback has no marker; Plasma Wayland adds the overlay. Ordinary
-left/right clicks must remain unchanged.
+On X11 the fallback has no marker; Plasma Wayland uses the themed pointer (or
+the recovery overlay if the effect is unavailable). Ordinary left/right clicks
+must remain unchanged.
 
 Diagnostics:
 
@@ -173,6 +191,7 @@ middleclick-autoscroll list
 systemctl --user status middleclick-autoscroll.path
 systemctl status midscroll.service
 systemctl --user status midscroll-overlay.service
+busctl --user call org.kde.KWin /Effects org.kde.kwin.Effects isEffectLoaded s midscrollcursor
 journalctl -u midscroll.service -b
 journalctl --user -u midscroll-overlay.service -b
 ```
@@ -182,6 +201,11 @@ Recovery is deliberately simple: stop the fallback temporarily with
 restore the complete repository state. `middleclick-autoscroll disable`
 restores the native-app launchers and flag files recorded in its ledger. Do not
 re-enable the old input-remapper `disable-middle` autoload entries.
+If a KWin update or cursor effect misbehaves, run
+`mouse/kwin-scroll-cursor/install --disable` from this checkout and log out
+and back in. This only disables future loading; it deliberately does not
+unload the effect from a running KWin session. Rerunning
+`install-mouse-config` restores it for a later login after repair.
 
 ## Things deliberately kept out of this repo
 

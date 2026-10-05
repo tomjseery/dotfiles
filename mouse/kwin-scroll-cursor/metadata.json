@@ -1,0 +1,9 @@
+{
+    "KPlugin": {
+        "Category": "Accessibility",
+        "Description": "Show a directional cursor during midscroll fallback scrolling",
+        "EnabledByDefault": false,
+        "License": "GPL-2.0-or-later",
+        "Name": "Midscroll Cursor"
+    }
+}

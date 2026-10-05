@@ -6,6 +6,10 @@ repo_root=$(cd "$(dirname "$script_path")/../../.." && pwd)
 midscroll_config_template="$repo_root/mouse/midscroll.conf.in"
 input_remapper_policy="$repo_root/mouse/input-remapper-config.json"
 input_remapper_merger="$repo_root/mouse/apply-input-remapper-config.py"
+pointer_overlay="$repo_root/mouse/midscroll-pointer-overlay"
+pointer_override="$repo_root/mouse/midscroll-overlay-pointer.conf"
+cursor_effect_installer="$repo_root/mouse/kwin-scroll-cursor/install"
+cursor_effect_source="$repo_root/mouse/kwin-scroll-cursor"
 midscroll_version=1.15
 
 render_midscroll_config() {
@@ -50,13 +54,17 @@ install_system_config() {
     local changed=false
     local official_dependencies=(
         python python-evdev python-gobject python-cairo gtk4
-        gtk4-layer-shell librsvg polkit xorg-xprop
+        gtk4-layer-shell librsvg polkit xorg-xprop cmake ninja gcc
+        extra-cmake-modules kcoreaddons kconfig qt6-base kwin
+        breeze-cursors
     )
     local missing_dependencies=()
     local conflicting_packages=()
     local app_installer
     local package
     local rendered_config
+    local source_file
+    local target_file
 
     # midscroll or the application itself owns MMB. xmousepasteblock also
     # observes/blocks that button under X11 and must not run alongside them.
@@ -92,6 +100,27 @@ install_system_config() {
     fi
     rm -f -- "$rendered_config"
 
+    # KWin rejects plugins built for a different version. Keep root-owned
+    # source copies and a post-upgrade hook so pacman can rebuild this effect
+    # without a logged-in user or a checkout at a fixed home path.
+    for source_file in CMakeLists.txt metadata.json midscrollcursor.cpp; do
+        target_file="/usr/local/share/tomjseery/midscrollcursor/$source_file"
+        if ! cmp -s "$cursor_effect_source/$source_file" "$target_file"; then
+            install -D -o root -g root -m 0644 \
+                "$cursor_effect_source/$source_file" "$target_file"
+        fi
+    done
+    target_file=/usr/local/libexec/midscrollcursor-rebuild
+    if ! cmp -s "$cursor_effect_source/rebuild-after-kwin-update" "$target_file"; then
+        install -D -o root -g root -m 0755 \
+            "$cursor_effect_source/rebuild-after-kwin-update" "$target_file"
+    fi
+    target_file=/etc/pacman.d/hooks/midscrollcursor.hook
+    if ! cmp -s "$cursor_effect_source/midscrollcursor.hook" "$target_file"; then
+        install -D -o root -g root -m 0644 \
+            "$cursor_effect_source/midscrollcursor.hook" "$target_file"
+    fi
+
     for app_installer in "$repo_root"/app-configs/*/install-system; do
         [[ -x $app_installer ]] || continue
         "$app_installer"
@@ -123,7 +152,15 @@ fi
 for required_file in \
     "$midscroll_config_template" \
     "$input_remapper_policy" \
-    "$input_remapper_merger"; do
+    "$input_remapper_merger" \
+    "$pointer_overlay" \
+    "$pointer_override" \
+    "$cursor_effect_installer" \
+    "$cursor_effect_source/rebuild-after-kwin-update" \
+    "$cursor_effect_source/midscrollcursor.hook" \
+    "$cursor_effect_source/CMakeLists.txt" \
+    "$cursor_effect_source/metadata.json" \
+    "$cursor_effect_source/midscrollcursor.cpp"; do
     if [[ ! -f $required_file ]]; then
         printf 'Required repository file is missing: %s\n' "$required_file" >&2
         exit 1
@@ -222,9 +259,25 @@ done
 
 pkexec "$script_path" --system "$midscroll_package"
 
-# The system daemon performs scrolling. This session service provides focused-
-# app reporting and, on Plasma Wayland, the anchor badge and ghost cursor.
+# The system daemon performs scrolling. This session service reports the app
+# under the pointer and draws the fallback badge only for unsupported apps.
+pointer_target="$HOME/.local/bin/midscroll-pointer-overlay"
+pointer_unit_override="$config_home/systemd/user/midscroll-overlay.service.d/pointer-routing.conf"
+overlay_changed=false
+if ! cmp -s "$pointer_overlay" "$pointer_target"; then
+    install -D -m 0755 "$pointer_overlay" "$pointer_target"
+    overlay_changed=true
+fi
+if ! cmp -s "$pointer_override" "$pointer_unit_override"; then
+    install -D -m 0644 "$pointer_override" "$pointer_unit_override"
+    systemctl --user daemon-reload
+    overlay_changed=true
+fi
 systemctl --user enable --now midscroll-overlay.service
+if [[ $overlay_changed == true ]]; then
+    systemctl --user restart midscroll-overlay.service
+fi
+"$cursor_effect_installer"
 
 # Remove the short-lived custom X11 indicator from an earlier revision. Native
 # Blink autoscroll now provides the real UI instead of a lookalike overlay.
@@ -240,12 +293,12 @@ printf '\nMouse configuration applied.\n'
 printf '  midscroll: enabled and running\n'
 printf '  native autoscroll: enabled for Chromium/Electron/CEF apps\n'
 if pacman -Q thunderbird &>/dev/null; then
-    printf '  Thunderbird: midscroll fallback selected by focused app\n'
+    printf '  Thunderbird: midscroll fallback selected under pointer\n'
 fi
 printf '  input-remapper autoload: empty; running injections stopped\n'
 printf '  ignored virtual device: input-remapper mouse\n'
 if [[ ${XDG_SESSION_TYPE-} == wayland ]]; then
-    printf '  midscroll fallback overlay: enabled for this Plasma Wayland session\n'
+    printf '  KWin fallback scroll cursor: enabled; old badge remains as recovery\n'
 else
     printf '  native apps show their built-in indicator; midscroll covers the rest\n'
 fi

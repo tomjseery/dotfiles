@@ -1,0 +1,10 @@
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Package
+Target = kwin
+
+[Action]
+Description = Rebuilding midscroll cursor for the new KWin version
+When = PostTransaction
+Exec = /usr/local/libexec/midscrollcursor-rebuild

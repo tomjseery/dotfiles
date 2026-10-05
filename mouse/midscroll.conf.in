@@ -18,15 +18,15 @@ TOGGLE_MODE = true
 # Do not take middle clicks from the Plasma desktop or panels.
 DESKTOP_SCROLL = false
 
-# The per-user midscroll-overlay service reports the focused application so
-# BLACKLIST can hand MMB to apps declared as native in their own app module.
-# It also draws midscroll's fallback overlay in a Plasma Wayland session.
+# The per-user midscroll-overlay service reports the window under the pointer
+# so BLACKLIST can hand MMB to native apps even without keyboard focus.
+# The overlay is a recovery indicator if KWin's moving-arrow effect is absent.
 GHOST_CURSOR = true
 GHOST_SCALE = 1.0
 SNAP_CURSOR_ON_RELEASE = true
 
 # Generated from every app-configs/*/midscroll-pass-through manifest.
-# Matching is case-insensitive against the focused window's WM_CLASS/app id.
+# Matching is case-insensitive against the pointer window's WM_CLASS/app id.
 BLACKLIST = @MIDSCROLL_PASS_THROUGH@
 
 EXTRA_DEVICES =

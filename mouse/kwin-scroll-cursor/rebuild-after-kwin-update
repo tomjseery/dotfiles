@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Pacman runs this after a KWin upgrade. KWin effect plugins include the exact
+# KWin version in their plugin IID, so an old binary will no longer load.
+if [[ $EUID -ne 0 ]]; then
+    printf 'This is the root-only pacman post-transaction hook.\n' >&2
+    exit 2
+fi
+
+source_dir=/usr/local/share/tomjseery/midscrollcursor
+build_dir=/var/cache/midscrollcursor/build
+plugin_source="$build_dir/lib/kwin/effects/plugins/midscrollcursor.so"
+plugin_target=/usr/lib/qt6/plugins/kwin/effects/plugins/midscrollcursor.so
+plugin_directory=${plugin_target%/*}
+
+cmake -S "$source_dir" -B "$build_dir" -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build "$build_dir" --clean-first --parallel 2
+temp_target=$(mktemp "$plugin_directory/.midscrollcursor.so.XXXXXXXX")
+trap 'rm -f -- "$temp_target"' EXIT
+install -o root -g root -m 0644 "$plugin_source" "$temp_target"
+mv -f -- "$temp_target" "$plugin_target"
+trap - EXIT

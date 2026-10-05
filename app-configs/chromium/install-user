@@ -11,8 +11,12 @@ if ! command -v middleclick-autoscroll &>/dev/null; then
     exit 1
 fi
 
-install -D -m 0644 "$source_config" "$target_config"
-middleclick-autoscroll enable
+if ! cmp -s "$source_config" "$target_config"; then
+    install -D -m 0644 "$source_config" "$target_config"
+fi
+# apply repairs drift and discovers apps without rewriting an already-correct
+# config on every installer run.
+middleclick-autoscroll apply --quiet
 
 # KWallet being locked/misconfigured must never be able to hang Chrome again:
 # keep Chrome on its own internal credential store instead of the desktop
