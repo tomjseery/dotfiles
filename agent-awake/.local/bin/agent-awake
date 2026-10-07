@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Hold a logind sleep/idle inhibitor while a Claude or Codex agent is working,
+# so KDE's idle suspend only fires once every agent has genuinely gone quiet.
+#
+# An agent counts as working when either:
+#   - one of its session transcripts was written in the last QUIET_MINUTES, or
+#   - a process it spawned (build, test run, script) burned CPU this interval.
+# An agent sitting idle at its prompt satisfies neither, so it does not block sleep.
+set -euo pipefail
+
+INTERVAL=${AGENT_AWAKE_INTERVAL:-60}
+QUIET_MINUTES=${AGENT_AWAKE_QUIET_MINUTES:-10}
+# CPU ticks (1/100 s) that agent child processes must use per interval.
+CHILD_TICKS=${AGENT_AWAKE_CHILD_TICKS:-100}
+TRANSCRIPT_DIRS=("$HOME/.claude/projects" "$HOME/.codex/sessions")
+AGENT_RE='^(claude|codex)$'
+
+inhibitor_pid=
+last_child_ticks=0
+
+recent_transcript() {
+    local dirs=() d
+    for d in "${TRANSCRIPT_DIRS[@]}"; do [[ -d $d ]] && dirs+=("$d"); done
+    ((${#dirs[@]})) || return 1
+    [[ -n $(find "${dirs[@]}" -name '*.jsonl' -mmin "-$QUIET_MINUTES" -print -quit 2>/dev/null) ]]
+}
+
+# Total CPU ticks of every non-agent descendant of an agent process.
+child_ticks() {
+    ps -e -o pid=,ppid=,comm=,times= | awk -v re="$AGENT_RE" '
+        { pid[NR]=$1; ppid[$1]=$2; comm[$1]=$3; secs[$1]=$4 }
+        END {
+            total = 0
+            for (i in pid) {
+                p = pid[i]
+                if (comm[p] ~ re) continue
+                for (a = ppid[p]; a > 1; a = ppid[a])
+                    if (comm[a] ~ re) { total += secs[p] * 100; break }
+            }
+            print total
+        }'
+}
+
+hold() {
+    [[ -n $inhibitor_pid ]] && kill -0 "$inhibitor_pid" 2>/dev/null && return
+    systemd-inhibit --what=idle:sleep --mode=block --who=agent-awake \
+        --why="AI agent is working" sleep infinity &
+    inhibitor_pid=$!
+    echo "agent activity: blocking sleep"
+}
+
+release() {
+    [[ -z $inhibitor_pid ]] && return
+    kill "$inhibitor_pid" 2>/dev/null || true
+    wait "$inhibitor_pid" 2>/dev/null || true
+    inhibitor_pid=
+    echo "agents quiet: sleep allowed"
+}
+
+trap 'release; exit 0' INT TERM
+
+last_child_ticks=$(child_ticks)
+while true; do
+    ticks=$(child_ticks)
+    # Exited children shrink the total, so only a rise means new work.
+    delta=$((ticks - last_child_ticks))
+    last_child_ticks=$ticks
+    if recent_transcript || ((delta >= CHILD_TICKS)); then
+        hold
+    else
+        release
+    fi
+    sleep "$INTERVAL" &
+    wait $!
+done

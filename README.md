@@ -41,7 +41,8 @@ installer data rather than files to link directly into `$HOME`.
    one contains — you don't have to take all of them):
 
    ```sh
-   stow --target="$HOME" shell apps bin kde kitty konsole vscode vesktop
+   stow --target="$HOME" shell apps bin kde kitty konsole vscode vesktop agent-awake
+   systemctl --user enable --now agent-awake.service
    ```
 
 6. Apply the machine-wide mouse configuration as the normal desktop user:
@@ -76,6 +77,11 @@ installer data rather than files to link directly into `$HOME`.
   Crashpad/session folders — those never leave the live machine)
 - `mouse` — the app-routing fallback and shared input-remapper conflict policy
   used by `install-mouse-config`
+- `agent-awake` — a user service that blocks KDE's idle suspend only while a
+  Claude or Codex agent is working (a transcript written in the last 10
+  minutes, or an agent child process using CPU). Agents idle at their prompt
+  don't block sleep. Check it with `systemd-inhibit --list` or
+  `journalctl --user -u agent-awake`.
 - `app-configs` — independently installable application integrations
 - `system-configs` — root-owned declarative configuration installed by setup
   scripts; the SDDM source runs the greeter and Plasma session on Wayland
