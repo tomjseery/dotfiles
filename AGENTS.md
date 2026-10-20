@@ -26,8 +26,7 @@ per top-level directory.
 ## Agent instruction files
 
 `AGENTS.md` is the only editable source of repository instructions.
-`CLAUDE.md` must remain a symlink to `AGENTS.md`; never replace it with a
-separate file.
+`CLAUDE.md` must remain the exact `@AGENTS.md` pointer; never replace it with a separate file.
 
 AGENTS.md
 
