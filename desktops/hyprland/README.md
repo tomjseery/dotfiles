@@ -4,6 +4,9 @@ An End4-pC desktop based on the Asuka V2 layout, with a top status bar, grouped
 desktop widgets, bottom app dock and shared Kitty coding terminal. Personal core configuration remains under
 `core/`; Plasma configuration and appearance have their own installers.
 
+Application icons inherit the [shared icon configuration](../../themes/shared/icons/README.md),
+currently Papirus-Dark, independently of the visual preset.
+
 ## Choose a preset
 
 | [Blue Anime](../../themes/hyprland/blue/README.md) | [Charcoal Anime](../../themes/hyprland/charcoal/README.md) |

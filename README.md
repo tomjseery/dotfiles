@@ -36,6 +36,7 @@ core/
 desktops/hyprland/       shared Hyprland configuration, source pins and patches
 desktops/kde/            KDE login/session setup
 themes/hyprland/         Blue and Charcoal presets, guides and screenshots
+themes/shared/icons/     shared KDE/Hyprland application icon choice
 components/qswitch/      optional existing graphical Quickshell switcher
 themes/current/          saved appearance, panel layout, assets and theme packages
 install/                 separate shell entry points
@@ -68,6 +69,7 @@ open the graphical administrator prompt.
 | `./install/mouse.sh` | Only the core MMB integration |
 | `./install/agents.sh` | Agent configuration and keep-awake user service; [details](core/agents/keep-awake/README.md) |
 | `./install/system.sh` | Core official packages, services and Chrome system policy |
+| `./install/icons.sh` | Shared Papirus-Dark icons for KDE and Hyprland; [details](themes/shared/icons/README.md) |
 | `./install/hyprland-packages.sh` | Hyprland desktop dependencies via graphical approval |
 | `./install/hyprland.sh` | Shared Hyprland setup and Blue/Charcoal presets |
 | `./install/kde.sh` | KDE shortcuts, keyboard and personal KConfig settings |
@@ -128,6 +130,7 @@ styling is applied only by the theme installer.
    ./install/core.sh --configs-only
    ./install/kde.sh --system
    ./install/theme.sh
+   ./install/icons.sh
    ./install/mouse.sh
    ./install/agents.sh
    ```
