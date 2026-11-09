@@ -88,6 +88,10 @@ class Routing:
         self.lease: Lease | None = None
         self.paused = False
         self.lock = asyncio.Lock()
+        self.generation = 0
+
+    def authorities(self) -> list[asyncio.StreamWriter]:
+        return [peer for peer in self.routers if self.eligible(peer)]
 
     def stop(self) -> None:
         if self.active is not None:
@@ -101,6 +105,7 @@ class Routing:
             lease is not None
             and lease.writer in self.routers
             and self.eligible(lease.writer)
+            and len(self.authorities()) == 1
             and self.clock() < lease.deadline
         )
 
@@ -112,6 +117,8 @@ class Routing:
         return not self.paused and self.active is gesture and self.valid()
 
     def disconnect(self, writer: asyncio.StreamWriter) -> None:
+        if writer in self.routers:
+            self.generation += 1
         self.routers.discard(writer)
         for peer, future in self.pending.values():
             if peer is writer and not future.done():
@@ -128,11 +135,12 @@ class Routing:
                 raise ValueError("Unsupported routing message")
             kind = payload.get("kind")
             if kind == "hello":
+                self.routers.add(writer)
+                # Inactive session peers remain registered for later activation.
                 if self.eligible(writer):
-                    self.routers.add(writer)
-                    # A second authority invalidates any existing permission.
-                    if len(self.routers) != 1:
-                        self.stop()
+                    self.generation += 1
+                if len(self.authorities()) != 1:
+                    self.stop()
             elif kind == "reply":
                 token = payload.get("token")
                 if isinstance(token, str) and token in self.pending:
@@ -140,14 +148,13 @@ class Routing:
                     if peer is writer and not future.done():
                         future.set_result(Target.parse(payload.get("target")))
             elif kind == "target":
-                target = Target.parse(payload.get("target"))
-                lease = self.lease
-                if (
-                    lease is not None
-                    and lease.writer is writer
-                    and (target != lease.target or not self.eligible(writer))
-                ):
+                Target.parse(payload.get("target"))
+                if writer in self.routers and self.eligible(writer):
+                    self.generation += 1
                     self.stop()
+                    for peer, future in self.pending.values():
+                        if peer is writer and not future.done():
+                            future.set_result(None)
                 # Unsolicited reports can revoke but never extend a lease.
             else:
                 raise ValueError("Unknown routing message")
@@ -157,13 +164,14 @@ class Routing:
         return True
 
     async def query(self) -> Lease | None:
-        peers = [peer for peer in self.routers if self.eligible(peer)]
+        peers = self.authorities()
         if len(peers) != 1:
             return None
         writer = peers[0]
         if writer.transport.get_write_buffer_size() > 4096:
             return None
         token = secrets.token_hex(8)
+        generation = self.generation
         future: asyncio.Future[Target | None] = (
             asyncio.get_running_loop().create_future()
         )
@@ -177,7 +185,8 @@ class Routing:
                 or target.app not in self.fallback_apps
                 or writer not in self.routers
                 or not self.eligible(writer)
-                or len(self.routers) != 1
+                or len(self.authorities()) != 1
+                or generation != self.generation
             ):
                 return None
             return Lease(writer, target, self.clock() + LEASE_SECONDS)
@@ -187,7 +196,9 @@ class Routing:
         finally:
             self.pending.pop(token, None)
 
-    async def button(self, gesture: Gesture, code: int, value: int) -> bool:
+    async def button(
+        self, gesture: Gesture, code: int, value: int, *, resolved_motion: bool = True
+    ) -> bool:
         """Return whether to consume; a down decision owns its matching up."""
         if value == 0:
             owner = gesture.owners.pop(code, Owner.STOP)
@@ -201,6 +212,10 @@ class Routing:
             return gesture.owners.get(code, Owner.NATIVE) is not Owner.NATIVE
         async with self.lock:
             self.on_clock()
+            if not resolved_motion:
+                self.stop()
+                gesture.owners[code] = Owner.NATIVE
+                return False
             if code != self.middle_button and self.active is None:
                 gesture.owners[code] = Owner.NATIVE
                 return False
@@ -249,3 +264,9 @@ class Routing:
         if self.active is gesture:
             self.stop()
         gesture.owners.clear()
+
+    def resync(self, gesture: Gesture, forwarded: set[int]) -> None:
+        """Retain releases owed to the application after upstream resync."""
+        if self.active is gesture:
+            self.stop()
+        gesture.owners = dict.fromkeys(forwarded, Owner.NATIVE)

@@ -234,3 +234,53 @@ def test_missing_slow_backlogged_helpers_and_late_replies_stay_native() -> None:
         assert not await broker.button(gesture, 274, 0)
 
     asyncio.run(scenario())
+
+
+def test_inactive_authority_cannot_veto_active_session() -> None:
+    async def scenario() -> None:
+        broker, old, _, gesture, _ = setup()
+        current = Peer(broker)
+        broker.eligible = lambda peer: peer is current.writer
+        broker.receive(current.writer, 'routing {"version":1,"kind":"hello"}')
+        assert len(broker.routers) == 2
+        assert await broker.button(gesture, 274, 1)
+        assert not old.requests
+
+    asyncio.run(scenario())
+
+
+def test_focus_invalidation_during_query_cannot_grant_or_restart() -> None:
+    async def scenario() -> None:
+        broker, peer, state, gesture, _ = setup()
+
+        def change() -> None:
+            broker.receive(
+                peer.writer, 'routing {"version":1,"kind":"target","target":null}'
+            )
+
+        peer.on_query = change
+        assert not await broker.button(gesture, 274, 1)
+        assert not await broker.button(gesture, 274, 0)
+        assert not bool(state.scrolling)
+        peer.on_query = lambda: None
+        assert await broker.button(gesture, 274, 1)
+        assert await broker.button(gesture, 274, 0)
+        assert bool(state.scrolling)
+        change()
+        assert not state.scrolling
+        await broker.refresh()
+        assert not state.scrolling
+
+    asyncio.run(scenario())
+
+
+def test_resync_preserves_only_forwarded_button_releases() -> None:
+    async def scenario() -> None:
+        broker, _, _, gesture, _ = setup()
+        assert not await broker.button(gesture, 272, 1)
+        assert await broker.button(gesture, 274, 1)
+        broker.resync(gesture, {272})
+        assert not await broker.button(gesture, 272, 0)
+        assert await broker.button(gesture, 274, 0)
+
+    asyncio.run(scenario())
