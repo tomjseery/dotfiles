@@ -68,16 +68,29 @@ async def target(desktop: str) -> Target | None:
 
 def trusted_socket(path: Path) -> bool:
     try:
+        root_owner = namespace_root_uid(
+            Path("/proc/self/uid_map").read_text(encoding="utf-8"),
+            int(Path("/proc/sys/kernel/overflowuid").read_text(encoding="utf-8")),
+        )
         parent, socket = path.parent.stat(), path.lstat()
-    except OSError as error:
+    except (OSError, ValueError) as error:
         log.debug("Routing socket unavailable: %s", error)
         return False
     return (
-        parent.st_uid == 0
+        parent.st_uid == root_owner
+        and not path.parent.is_symlink()
         and not parent.st_mode & 0o022
-        and socket.st_uid == 0
+        and socket.st_uid == root_owner
         and stat.S_ISSOCK(socket.st_mode)
     )
+
+
+def namespace_root_uid(mapping: str, overflow: int) -> int:
+    for line in mapping.splitlines():
+        inside, outside, count = (int(value) for value in line.split())
+        if outside == 0 and count > 0:
+            return inside
+    return overflow
 
 
 async def serve(desktop: str, path: Path = SOCKET) -> None:
