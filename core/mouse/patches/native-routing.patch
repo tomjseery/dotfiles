@@ -1,0 +1,218 @@
+diff --git a/midscroll-overlay.py b/midscroll-overlay.py
+index 67ade43..e144482 100644
+--- a/midscroll-overlay.py
++++ b/midscroll-overlay.py
+@@ -39,6 +39,7 @@ import stat
+ import struct
+ import subprocess
+ import sys
++import argparse
+ import threading
+ import time
+ 
+@@ -595,6 +596,12 @@ def watch_socket(overlay):
+ 
+ 
+ def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--no-drawing", action="store_true")
++    args = parser.parse_args()
++    if args.no_drawing:
++        watch_socket(None)
++        return
+     logging.basicConfig(level=logging.INFO,
+                         format="%(levelname)s: %(message)s")
+     if not WAYLAND:
+diff --git a/midscroll.py b/midscroll.py
+index 7594c03..1f02b6f 100644
+--- a/midscroll.py
++++ b/midscroll.py
+@@ -11,6 +11,7 @@ import sys
+ import time
+ 
+ from evdev import InputDevice, UInput, ecodes as e, list_devices
++from midscroll_routing import Gesture, Routing
+ 
+ VERSION = "1.15"
+ 
+@@ -29,6 +30,8 @@ PX_PER_NOTCH = 55.0       # how many px one wheel notch scrolls in your apps
+ MAX_DRAG_PX = 1200.0      # cap on effective drag distance (~screen height)
+ TICK_HZ = 90.0            # scroll event rate (higher = smoother)
+ NATURAL = False           # True inverts scroll direction
++NATIVE_DEFAULT = False      # native MMB unless a routing helper proves an opt-in
++FALLBACK_APPS = []           # exact case-insensitive app IDs, never substrings
+ TOGGLE_MODE = False       # True: click to start/stop instead of hold-and-drag
+ DESKTOP_SCROLL = False    # True: also autoscroll over the desktop and panels
+ GHOST_CURSOR = True       # True: helper draws a cursor at the dragged point
+@@ -88,7 +91,7 @@ WRITE_DROP_BYTES = 65536   # disconnect a client this far behind
+ 
+ FLOAT_KEYS = {"DEADZONE_PX", "TICK_HZ", "SPEED_MULT", "SPEED_EXP",
+               "MAX_PX_PER_SEC", "PX_PER_NOTCH", "MAX_DRAG_PX", "GHOST_SCALE"}
+-BOOL_KEYS = {"NATURAL", "TOGGLE_MODE", "DESKTOP_SCROLL", "GHOST_CURSOR",
++BOOL_KEYS = {"NATIVE_DEFAULT", "NATURAL", "TOGGLE_MODE", "DESKTOP_SCROLL", "GHOST_CURSOR",
+              "SNAP_CURSOR_ON_RELEASE", "ALLOW_KEYBOARDS"}
+ DEVICE_KEYS = {"EXTRA_DEVICES", "IGNORE_DEVICES"}
+ # Zero would divide by zero (TICK_HZ, PX_PER_NOTCH) or make the daemon
+@@ -232,6 +235,8 @@ def load_config(path=CONFIG_PATH):
+             except ValueError as err:
+                 log.error("config: %s = %r rejected: %s (keeping %s)",
+                           k, v, err, globals()[k])
++        elif k == "FALLBACK_APPS":
++            globals()["FALLBACK_APPS"] = parse_blacklist(v)
+         elif k == "BLACKLIST":
+             globals()["BLACKLIST"] = parse_blacklist(v)
+         elif k in DEVICE_KEYS:
+@@ -277,7 +282,8 @@ def _peer_is_overlay(pid):
+     """
+     if pid is None:
+         return False
+-    names = ("midscroll-overlay", "midscroll-overlay.py")
++    names = ("midscroll-overlay", "midscroll-overlay.py",
++             "midscroll-router", "midscroll-router.py", "kwin_wayland", "kwin_x11")
+     try:
+         with open(f"/proc/{pid}/cmdline", "rb") as f:
+             argv = [a.decode("utf-8") for a in f.read().split(b"\0") if a]
+@@ -401,6 +407,10 @@ class Notifier:
+         self.last_pos = None
+         self.active_uids = frozenset()
+         self.ghost_visible = None
++        self.routing = Routing(
++            frozenset(FALLBACK_APPS), e.BTN_MIDDLE,
++            lambda writer: writer in self.writers
++            and _uid_is_active(self.writers[writer]))
+ 
+     async def start(self):
+         try:
+@@ -451,18 +461,22 @@ class Notifier:
+                 line = await reader.readline()
+                 if not line:
+                     break
+-                text = line.decode("utf-8", "replace").strip()
+-                if text.startswith("focus "):
++                text = line.decode("utf-8", "replace").rstrip("\r\n")
++                if NATIVE_DEFAULT and self.routing.receive(writer, text):
++                    continue
++                if not NATIVE_DEFAULT and text.startswith("focus "):
+                     self.focus.update(client, text[len("focus "):])
+         except (OSError, ConnectionError, ValueError):
+             pass  # ValueError: line over SOCK_LIMIT, drop the peer
+         finally:
+             self.writers.pop(writer, None)
++            self.routing.disconnect(writer)
+             self.focus.remove(client)
+             writer.close()
+ 
+     def _drop(self, writer):
+         self.writers.pop(writer, None)
++        self.routing.disconnect(writer)
+         try:
+             writer.close()
+         except (OSError, ConnectionError):
+@@ -535,6 +549,7 @@ class State:
+ 
+     def __init__(self, ui):
+         self.ui = ui
++        self.gesture = Gesture(self)
+         self.reset()
+ 
+     def reset(self):
+@@ -652,8 +667,12 @@ async def ticker(states, notifier, focus):
+         now = time.monotonic()
+         dt = min(now - last, MAX_TICK_DT)  # cap so a stall can't lurch
+         last = now
++        if NATIVE_DEFAULT:
++            notifier.routing.on_clock()
+         for st in list(states.values()):
+             try:
++                if NATIVE_DEFAULT and not notifier.routing.can_scroll(st.gesture):
++                    continue
+                 tick(st, dt, focus)
+             except Exception as err:  # one bad tick must not kill the loop
+                 log.error("tick error: %r", err)
+@@ -679,7 +698,7 @@ async def ticker(states, notifier, focus):
+ 
+ 
+ def tick(st, dt, focus):
+-    if focus.blocked:
++    if not NATIVE_DEFAULT and focus.blocked:
+         # A blacklisted app is focused. Never scroll, and stop anything
+         # already running (focus changed mid-scroll) so it can't keep
+         # scrolling under the blacklisted app.
+@@ -879,7 +898,10 @@ async def pump(path, dev, states, tasks, focus, our_paths, notifier):
+     log.info("grabbed %s (%s)", dev.name, path)
+     try:
+         async for ev in dev.async_read_loop():
+-            if TOGGLE_MODE and ev.type == e.EV_KEY and _is_button(ev.code):
++            if NATIVE_DEFAULT and ev.type == e.EV_KEY and _is_button(ev.code):
++                if await notifier.routing.button(st.gesture, ev.code, ev.value):
++                    continue
++            elif TOGGLE_MODE and ev.type == e.EV_KEY and _is_button(ev.code):
+                 if _toggle_key(ev, st, ui, focus):
+                     continue
+                 # An unrelated button while idle: fall through and forward it.
+@@ -930,6 +952,8 @@ async def pump(path, dev, states, tasks, focus, our_paths, notifier):
+                     continue
+             if ev.type == e.EV_SYN:
+                 if ev.code == e.SYN_DROPPED:
++                    if NATIVE_DEFAULT:
++                        notifier.routing.release_device(st.gesture)
+                     _resync(ui, dev, held, st)
+                 elif st.release_pending:
+                     was_click = _finish_release(st, ui, notifier)
+@@ -952,6 +976,8 @@ async def pump(path, dev, states, tasks, focus, our_paths, notifier):
+     finally:
+         # Don't leave a button stuck down on the virtual device if the real
+         # one vanished mid-press.
++        if NATIVE_DEFAULT:
++            notifier.routing.release_device(st.gesture)
+         if held or st.passthrough:
+             for code in held:
+                 ui.write(e.EV_KEY, code, 0)
+@@ -1118,6 +1144,13 @@ def report_devices():
+             dev.close()
+ 
+ 
++async def routing_refresh(notifier):
++    while True:
++        await asyncio.sleep(0.1)
++        if NATIVE_DEFAULT:
++            await notifier.routing.refresh()
++
++
+ async def main():
+     focus = FocusFilter()
+     notifier = Notifier(focus)
+@@ -1130,6 +1163,7 @@ async def main():
+         log.warning("uinput phys marker did not round-trip; relying on "
+                     "device-path tracking to skip our own mirrors")
+     tick_task = asyncio.create_task(ticker(states, notifier, focus))
++    refresh_task = asyncio.create_task(routing_refresh(notifier))
+     log.info("running")
+     try:
+         while True:
+@@ -1162,6 +1196,7 @@ async def main():
+                     pump(path, dev, states, tasks, focus, our_paths, notifier))
+             await asyncio.sleep(2)
+     finally:
++        refresh_task.cancel()
+         tick_task.cancel()
+         for t in list(tasks.values()):
+             t.cancel()
+@@ -1203,6 +1238,8 @@ def parse_args(argv=None):
+                "override it for this run.")
+     p.add_argument("--version", action="version",
+                    version=f"midscroll {VERSION}")
++    p.add_argument("--native-default", action="store_true",
++                   help="preserve native clicks unless an explicit target grants fallback")
+     p.add_argument("--config", default=CONFIG_PATH, metavar="PATH",
+                    help=f"config file to read (default: {CONFIG_PATH})")
+     p.add_argument("--debug", action="store_true",
+@@ -1257,6 +1294,8 @@ def cli():
+         level=logging.DEBUG if args.debug else logging.INFO,
+         format="%(levelname)s: %(message)s")
+     load_config(args.config)
++    if args.native_default:
++        globals()["NATIVE_DEFAULT"] = True
+     for key in FLOAT_KEYS:
+         val = getattr(args, key.lower())
+         if val is not None:

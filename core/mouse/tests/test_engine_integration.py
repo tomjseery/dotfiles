@@ -1,0 +1,153 @@
+import asyncio
+import json
+from collections.abc import AsyncIterator
+from pathlib import Path
+from types import ModuleType, SimpleNamespace
+from typing import Any, cast
+
+import pytest
+
+
+def test_real_ipc_with_passive_viewer_and_router(
+    engine: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        # Only identity/environment boundaries are controlled; parsing and Unix
+        # framing use the production handler and real OS peer credentials.
+        monkeypatch.setattr(engine, "_uid_has_seat", lambda _: True)
+        monkeypatch.setattr(engine, "_uid_is_active", lambda _: True)
+        monkeypatch.setattr(engine, "_peer_is_overlay", lambda _: True)
+        notifier = engine.Notifier(engine.FocusFilter())
+        path = str(tmp_path / "state.sock")
+        server = await asyncio.start_unix_server(
+            notifier._client, path=path, limit=engine.SOCK_LIMIT
+        )
+        async with server:
+            reader, writer = await asyncio.open_unix_connection(path)
+            viewer, viewer_writer = await asyncio.open_unix_connection(path)
+            await reader.readline()
+            await viewer.readline()
+            writer.write(b'routing {"version":1,"kind":"hello"}\n')
+            await writer.drain()
+
+            # Registration barrier without assuming scheduler timing.
+            async def registered() -> None:
+                while not notifier.routing.routers:
+                    await asyncio.sleep(0)
+
+            await asyncio.wait_for(registered(), 1)
+            query = asyncio.create_task(notifier.routing.query())
+            message = json.loads((await reader.readline())[8:])
+            writer.write(
+                (
+                    "routing "
+                    + json.dumps(
+                        {
+                            "version": 1,
+                            "kind": "reply",
+                            "token": message["token"],
+                            "target": {
+                                "session": "test",
+                                "surface": "id",
+                                "app": "kitty",
+                            },
+                        }
+                    )
+                    + "\n"
+                ).encode()
+            )
+            await writer.drain()
+            assert await query is not None
+            # A passive viewer receives notifications but no routing request.
+            notifier.set(True)
+            assert await viewer.readline() == b"1\n"
+            writer.close()
+            viewer_writer.close()
+            await writer.wait_closed()
+            await viewer_writer.wait_closed()
+
+            async def disconnected() -> None:
+                while notifier.writers:
+                    await asyncio.sleep(0)
+
+            await asyncio.wait_for(disconnected(), 1)
+            assert not notifier.routing.routers
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("app", ["future-browser", "kitty", None])
+def test_production_pump_forwards_balanced_sequences_and_frames(
+    engine: ModuleType, monkeypatch: pytest.MonkeyPatch, app: str | None
+) -> None:
+    async def scenario() -> None:
+        output: list[tuple[int, int, int] | str] = []
+        ui = SimpleNamespace(
+            device=None,
+            write=lambda *event: output.append(event),
+            syn=lambda: output.append("syn"),
+            close=lambda: None,
+        )
+        monkeypatch.setattr(engine, "make_uinput", lambda _: ui)
+        notifier = engine.Notifier(engine.FocusFilter())
+
+        # External query boundary; the pump, release ledger, frame forwarding,
+        # normal movement and cleanup are the production implementation.
+        async def query() -> Any:
+            from midscroll_routing import Lease, Target
+
+            if app is None:
+                return None
+            if app != "kitty":
+                return None
+            return Lease(peer, Target("test", "id", app), float("inf"))
+
+        peer = cast(asyncio.StreamWriter, object())
+        # The lease's socket eligibility is this test's external boundary.
+        notifier.routing.eligible = lambda _: True
+        notifier.routing.routers.add(peer)
+        notifier.routing.query = query
+        states: dict[str, Any] = {}
+        middle = engine.e.BTN_MIDDLE
+        events = [
+            (engine.e.EV_KEY, middle, 1),
+            (engine.e.EV_SYN, 0, 0),
+            (engine.e.EV_REL, engine.e.REL_X, 2),
+            (engine.e.EV_SYN, 0, 0),
+            (engine.e.EV_KEY, middle, 0),
+            (engine.e.EV_SYN, 0, 0),
+        ]
+
+        class Device:
+            name = "synthetic"
+            phys = "synthetic"
+
+            def grab(self) -> None:
+                pass
+
+            def close(self) -> None:
+                pass
+
+            async def async_read_loop(self) -> AsyncIterator[SimpleNamespace]:
+                for kind, code, value in events:
+                    yield SimpleNamespace(type=kind, code=code, value=value)
+                assert states["device"].scrolling is (app == "kitty")
+
+        await engine.pump(
+            "device", Device(), states, {}, notifier.focus, set(), notifier
+        )
+        native_buttons = [
+            event
+            for event in output
+            if isinstance(event, tuple) and event[0] == engine.e.EV_KEY
+        ]
+        expected = (
+            []
+            if app == "kitty"
+            else [(engine.e.EV_KEY, middle, 1), (engine.e.EV_KEY, middle, 0)]
+        )
+        assert native_buttons == expected
+        assert (engine.e.EV_REL, engine.e.REL_X, 2) in output
+        assert output.count("syn") == 3
+
+    asyncio.run(scenario())
