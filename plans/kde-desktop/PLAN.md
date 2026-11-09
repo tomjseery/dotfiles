@@ -67,8 +67,9 @@ panel refresh below is a deferred idea, not current implementation scope.
    thumbnails plus next/previous wallpaper actions, optional native wallpaper
    accent, stable panel/window layout and Kitty contrast. Do not run the broad
    plasma-themer installer as-is. Verify against local Plasma 6.8.2.
-5. Tommy chooses wallpapers independently. No further image generation,
-   launcher replacement or live wallpaper changes until selected/authorised.
+5. Five wallpapers are now selected and their ultrawide files are prepared
+   (see Selected collection below). Review the exports before live wallpaper
+   application. No launcher replacement or switcher installation yet.
 
 ## Pickup
 
@@ -193,3 +194,33 @@ this is not a request to reproduce or install the complete setup. The actual
 panel details have not been visually verified here. User explicitly deferred
 this investigation and asked for baby steps. Do not change the panel now;
 revisit this reference only when that small work item is selected.
+
+## Selected collection — 2026-11-09
+
+Tommy explicitly selected the following five Alpha Coders images and asked to
+make them ultrawide. This authorises downloading the originals and generating
+side extensions; it does not authorise installing the switcher, changing the
+panel/browser/launcher, or applying a live wallpaper.
+
+| Source ID | Title | Artist credited by source |
+| --- | --- | --- |
+| [1359466](https://wall.alphacoders.com/big.php?i=1359466) | Skybound Serenity | robokoboto |
+| [1407458](https://wall.alphacoders.com/big.php?i=1407458) | Hatsune Miku Glitch | hwancat |
+| [1358147](https://wall.alphacoders.com/big.php?i=1358147) | Anime Girl in Blue | robokoboto |
+| [1384235](https://wall.alphacoders.com/big.php?i=1384235) | Aesthetic Gaming Lofi | patrika |
+| [1314137](https://wall.alphacoders.com/big.php?i=1314137) | Serene Anime Girl at Train Station | 葛城ナコモ |
+
+Files stay outside Git in `/home/tommy/Pictures/Wallpapers/selected/`:
+- `originals/`: unmodified source downloads.
+- `ultrawide/`: five AI side extensions, exported and dimension-checked at 2560 × 1080.
+- `collection.json`: titles, source URLs, credited artists, original/generated file paths and SHA-256 checksums.
+- `SOURCES.md` and `PROMPTS.md`: attribution and generation notes.
+- `index.html`: local review gallery with Original/Ultrawide comparison and full-size image links; it does not apply wallpapers.
+
+The third selection was thought to be saved already. Exact-byte and approximate
+visual checks in Pictures/Downloads found no matching prior copy. All originals
+were therefore retained in the curated collection; nothing pre-existing was
+removed. The train-station artwork is nearly square and required substantially
+more side extension than the other four. Generated subjects and scenes were
+visually checked; originals remain available for comparison. No live desktop,
+Firefox, launcher or Hyprland configuration was changed by this preparation.
