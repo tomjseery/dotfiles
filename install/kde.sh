@@ -7,3 +7,5 @@ fi
 source "$repo_root/install/common.bash"
 stow_configs "$repo_root/core/configs" kde
 python3 "$repo_root/scripts/apply-settings.py" "$repo_root/core/settings" --kind kconfig "${dry_run[@]}"
+
+"$repo_root/install/icons.sh" --configs-only "${dry_run[@]}"

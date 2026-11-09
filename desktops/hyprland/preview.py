@@ -59,6 +59,8 @@ def main(output):
         home = Path(directory)
         runtime = home / prepare.RUNTIME
         prepare.reconstruct(runtime, home, caches)
+        subprocess.run(['python3', str(prepare.REPO / 'themes/shared/icons/apply.py')],
+                       env=dict(os.environ, HOME=str(home)), check=True)
         # Share only immutable artwork/dependencies, not state or credentials.
         (runtime / 'assets').symlink_to(live / 'assets', target_is_directory=True)
         (runtime / 'venv').symlink_to(live / 'venv', target_is_directory=True)

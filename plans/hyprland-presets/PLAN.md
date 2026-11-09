@@ -158,3 +158,26 @@ values, and show terminal comparisons in the root gallery. New filename avoids
 reusing the cached80% image. Preview installs its own desktop launchers and closes
 sidebars to produce a clean capture. Publish this authorised README correction
 through the required PR route; unfinished KDE files remain excluded.
+
+## Shared application icons
+
+User approved one shared application icon theme for KDE and Hyprland and asked
+where it belongs. Owner: themes/shared/icons/; canonical manifest selects
+Papirus-Dark and its Arch package. Remove the old current-profile icon override.
+Add an independent installer, reuse existing settings merge behavior, and wire
+configuration-only application into desktop/theme installation. Quickshell reads
+the live shared Qt icon choice rather than hardcoding Breeze. Keep icon selection
+outside native visual presets and preserve theme/pins/credentials/core input.
+Implementation lane L4 for bounded installer integration and preservation tests.
+Continue in Feature/SharedDesktopIcons, isolated from unfinished KDE files.
+
+Shared icon implementation complete: themes/shared/icons/theme.json is the single
+saved choice; install/icons.sh owns package/config setup. KDE/theme installers
+reuse it, Hyprland consumes its package/choice, the launcher reads the live shared
+Qt setting, and native preset imports exclude appearance.icons. Removed the old
+Colloid override. Live Qt/KDE, GTK and scoped shell settings now use Papirus-Dark.
+Firefox/Chrome/Kitty resolve to installed Papirus SVG files; Charcoal remains
+selected at0.92 opacity. All22 tests pass, including idempotence, unrelated-setting
+preservation, current-preset preservation, launcher inheritance and native import
+isolation. User additionally authorises concise scoped AGENTS rules after this
+implementation; keep durable guidance in a separate Docs slice.

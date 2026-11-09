@@ -97,6 +97,7 @@ class HyprlandPresets(unittest.TestCase):
             self.assertIn('no_blur = false', (build / 'config/hypr/custom/rules.lua').read_text())
             self.assertEqual(cfg['hyprland']['decoration']['blur']['size'], 8)
             self.assertIn('blur = { size = 8 }', (build / 'config/hypr/hyprland/shellOverrides/main.lua').read_text())
+            self.assertEqual(cfg['appearance']['icons']['theme'], 'Papirus-Dark')
             self.assertFalse(cfg['bar']['bottom'])
             self.assertEqual(cfg['dock']['position'], 'bottom')
             self.assertEqual(len(cfg['dock']['pinnedApps']), 7)
@@ -108,6 +109,20 @@ class HyprlandPresets(unittest.TestCase):
             self.assertFalse((build / 'state').exists())
             self.assertFalse((build / 'presets/blue/README.md').exists())
             self.assertFalse((build / 'presets/blue/screenshots').exists())
+            # Native imports must not replace the shared application icon theme.
+            import os
+            import subprocess
+            preset = build / 'presets/blue/settings.json'
+            overlay = json.loads(preset.read_text())
+            overlay['appearance']['icons'] = {'theme': 'Wrong-Theme'}
+            preset.write_text(json.dumps(overlay))
+            (shell / 'scripts/colors/switchwall.sh').write_text('#!/usr/bin/env bash\nexit 0\n')
+            env = dict(os.environ, XDG_CONFIG_HOME=str(build / 'config'),
+                       XDG_STATE_HOME=str(build / 'state'), XDG_CACHE_HOME=str(build / 'cache'))
+            subprocess.run(['bash', str(shell / 'scripts/presets.sh'), '--apply', 'Blue_Anime'],
+                           env=env, check=True, capture_output=True)
+            applied = json.loads((build / 'config/illogical-impulse/config.json').read_text())
+            self.assertEqual(applied['appearance']['icons']['theme'], 'Papirus-Dark')
 
 
 if __name__ == '__main__':

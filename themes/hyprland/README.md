@@ -25,6 +25,8 @@ selected wallpaper. Both generated images have their full prompts beside them.
 The original Blue and Charcoal images are downloaded by the shared manifest rather
 than copied into Git. `wallpaper.png` links are created during installation.
 
+Application icons come from the [shared icon module](../shared/icons/README.md).
+
 ## Sources
 
 - Blue original: [robokoboto artwork on Alpha Coders](https://wall.alphacoders.com/big.php?i=1358147),
