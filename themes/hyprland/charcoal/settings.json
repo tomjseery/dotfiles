@@ -18,7 +18,7 @@
       "enableTerminal": true,
       "enableAppsAndShell": true,
       "terminalGenerationProps": {
-        "backgroundOpacity": 0.8,
+        "backgroundOpacity": 0.92,
         "forceDarkMode": true
       }
     }

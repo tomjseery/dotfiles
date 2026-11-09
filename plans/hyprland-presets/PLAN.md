@@ -140,3 +140,21 @@ completed committed core reorganisation, desktop components, Hyprland presets an
 gallery; dirty KDE shortcuts/panel changes and untracked kde/ remain excluded.
 Publish with a normal fast-forward push, then verify the fetched main SHA matches
 the exact candidate. No force push or session restart.
+
+## Charcoal readability and gallery correction
+
+User requested less transparency, then clarified the terminal still needed more
+opacity and background blur. Final selection is0.92 opacity, replacing the brief
+local0.85 adjustment. Found upstream's blanket no_blur window rule prevented the
+previously enabled compositor blur from affecting Kitty. Add a later exception
+for class end4-pc-terminal, with shared blur defaults size8/passes3; Blue remains
+opaque. Applied the same values to the live scoped configuration and rendered
+palette without switching the selected theme or changing KDE.
+
+Fresh isolated Charcoal capture validates the Lua config and unchanged live
+settings/palettes; visually inspected the stronger blur and clearer terminal text.
+Replace the old terminal image with screenshots/terminal-92.png, update README
+values, and show terminal comparisons in the root gallery. New filename avoids
+reusing the cached80% image. Preview installs its own desktop launchers and closes
+sidebars to produce a clean capture. Publish this authorised README correction
+through the required PR route; unfinished KDE files remain excluded.
