@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Kitty — Desktop Terminal
+Exec=@HOME@/.local/bin/end4-pc-terminal
+Icon=kitty
+StartupWMClass=end4-pc-terminal
+Terminal=false
+Categories=System;TerminalEmulator;

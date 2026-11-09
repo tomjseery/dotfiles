@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+exec kitty --class end4-pc-terminal --listen-on "unix:${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/end4pc-kitty-$$" --override allow_remote_control=socket-only --config "$HOME/.local/share/dotfiles/end4-pc-trial/config/kitty/kitty.conf" "$@"

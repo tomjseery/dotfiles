@@ -15,6 +15,7 @@ core/
   settings/              personal keys from mixed KDE and app configuration
   system-configs/        machine policy
   packages/              core AUR application list
+desktops/hyprland/       shared Hyprland configuration, source pins and patches
 desktops/kde/            KDE login/session setup
 components/qswitch/      optional existing graphical Quickshell switcher
 themes/current/          saved appearance, panel layout, assets and theme packages
@@ -28,9 +29,10 @@ integrations require a particular desktop: the current fallback scroll cursor
 uses KWin and needs an equivalent if Hyprland is added later.
 
 `themes/current/` preserves your existing Catppuccin/Zero Two appearance.
-Hyprland and Persona are being tried locally; their trial configuration and
-assets are not saved by this repository. Future adopted profiles belong
-alongside `current/`; large upstream downloads stay outside Git.
+The approved Hyprland desktop is saved under `desktops/hyprland/`, with Blue
+and Charcoal visual presets under `themes/hyprland/`; see its
+[installer and controls](desktops/hyprland/README.md). Persona was rejected and
+remains outside Git. Large upstream downloads stay outside Git.
 Wallpapers and external themes referenced by this profile remain in their
 existing locations; this repository is not a complete artwork backup.
 
@@ -46,6 +48,8 @@ open the graphical administrator prompt.
 | `./install/mouse.sh` | Only the core MMB integration |
 | `./install/agents.sh` | Agent configuration and keep-awake user service; [details](core/agents/keep-awake/README.md) |
 | `./install/system.sh` | Core official packages, services and Chrome system policy |
+| `./install/hyprland-packages.sh` | Hyprland desktop dependencies via graphical approval |
+| `./install/hyprland.sh` | Shared Hyprland setup and Blue/Charcoal presets |
 | `./install/kde.sh` | KDE shortcuts, keyboard and personal KConfig settings |
 | `./install/kde.sh --system` | Existing SDDM/Wayland login setup |
 | `./install/theme.sh` | Saved appearance, then reassert core settings |
