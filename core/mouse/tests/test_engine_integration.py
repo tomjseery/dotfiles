@@ -7,6 +7,8 @@ from typing import Any, cast
 
 import pytest
 
+from midscroll_routing import Gesture, session
+
 
 def test_real_ipc_with_passive_viewer_and_router(
     engine: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -243,5 +245,73 @@ def test_pump_unresolved_motion_never_uses_previous_pointer_target(
             (engine.e.EV_KEY, middle, 1),
             (engine.e.EV_KEY, middle, 0),
         ]
+
+    asyncio.run(scenario())
+
+
+def test_composed_helper_invalidation_stops_fallback_between_queries(
+    engine: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        changed = asyncio.Event()
+        observed = asyncio.Event()
+        monkeypatch.setattr(engine, "_uid_has_seat", lambda _: True)
+        monkeypatch.setattr(engine, "_uid_is_active", lambda _: True)
+        monkeypatch.setattr(engine, "_peer_is_overlay", lambda _: True)
+        monkeypatch.setattr(session, "trusted_socket", lambda _: True)
+
+        async def target(desktop: str) -> Any:
+            from midscroll_routing import Target
+
+            return Target("session", "same-original-window", "kitty")
+
+        async def observe(desktop: str, notify: Any, ready: asyncio.Event) -> None:
+            ready.set()
+            await changed.wait()
+            # Both transitions can occur before another target query.
+            notify()
+            notify()
+            observed.set()
+            await asyncio.Future[None]()
+
+        monkeypatch.setattr(session, "target", target)
+        monkeypatch.setattr(session, "observe", observe)
+        notifier = engine.Notifier(engine.FocusFilter())
+        path = tmp_path / "state.sock"
+        server = await asyncio.start_unix_server(notifier._client, path=str(path))
+        async with server:
+            helper = asyncio.create_task(session.serve("KDE", path))
+            try:
+
+                async def registered() -> None:
+                    while not notifier.routing.routers:
+                        await asyncio.sleep(0)
+
+                await asyncio.wait_for(registered(), 1)
+                state = engine.State(SimpleNamespace())
+                gesture = Gesture(state)
+                assert await notifier.routing.button(gesture, engine.e.BTN_MIDDLE, 1)
+                assert await notifier.routing.button(gesture, engine.e.BTN_MIDDLE, 0)
+                assert state.scrolling
+                changed.set()
+                await observed.wait()
+
+                async def revoked() -> None:
+                    while notifier.routing.active is not None:
+                        await asyncio.sleep(0)
+
+                await asyncio.wait_for(revoked(), 1)
+                assert not state.scrolling
+                await notifier.routing.refresh()
+                assert not state.scrolling
+            finally:
+                helper.cancel()
+                await asyncio.gather(helper, return_exceptions=True)
+
+                async def disconnected() -> None:
+                    while notifier.writers:
+                        await asyncio.sleep(0)
+
+                await asyncio.wait_for(disconnected(), 1)
 
     asyncio.run(scenario())

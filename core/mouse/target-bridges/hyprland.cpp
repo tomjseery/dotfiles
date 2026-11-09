@@ -6,6 +6,7 @@
 #include <hyprland/src/desktop/view/window/Window.hpp>
 #include <hyprland/src/desktop/view/window/WindowMetadata.hpp>
 #include <hyprland/src/layout/LayoutManager.hpp>
+#include <hyprland/src/ipc/s2/S2.hpp>
 #include <hyprland/src/managers/SeatManager.hpp>
 #include <hyprland/src/managers/SessionLockManager.hpp>
 #include <hyprland/src/managers/input/InputManager.hpp>
@@ -23,6 +24,8 @@
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace dotfiles::mouse {
 namespace {
@@ -35,6 +38,20 @@ std::string unique_token() {
 class TargetBridge final {
 public:
     explicit TargetBridge(HANDLE handle) : handle_{handle}, session_{unique_token()} {
+        // Own the observation subscriptions before exposing the query. Missing
+        // subscriptions must never permit a snapshot-based permission lease.
+        if (g_pSeatManager && g_pSessionLockManager) {
+            listeners_.push_back(g_pSeatManager->m_events.pointerFocusChange.listen(
+                [this] { invalidate(); }));
+            listeners_.push_back(g_pSeatManager->m_events.dndPointerFocusChange.listen(
+                [this] { invalidate(); }));
+            listeners_.push_back(g_pSessionLockManager->m_events.lock.listen(
+                [this] { invalidate(); }));
+            listeners_.push_back(g_pSessionLockManager->m_events.unlock.listen(
+                [this] { invalidate(); }));
+            listeners_.push_back(Event::bus()->m_events.window.class_.listen(
+                [this] { invalidate(); }));
+        }
         command_ = HyprlandAPI::registerHyprCtlCommand(handle_, {
             .name = "mouse-target",
             .match = IPC::Socket1::COMMAND_MATCH_EXACT,
@@ -53,21 +70,72 @@ public:
         });
         if (!command_)
             throw std::runtime_error{"Could not register mouse-target query"};
+        try {
+            observe_command_ = HyprlandAPI::registerHyprCtlCommand(handle_, {
+                .name = "mouse-target-observe ",
+                .match = IPC::Socket1::COMMAND_MATCH_PREFIX,
+                .handler = [](const IPC::Socket1::SRequest& request) -> IPC::Socket1::SResponse {
+                    constexpr std::string_view prefix{"mouse-target-observe "};
+                    constexpr std::size_t token_length{32};
+                    std::string_view token{request.command};
+                    if (!token.starts_with(prefix))
+                        return "invalid observation token";
+                    token.remove_prefix(prefix.size());
+                    if (token.size() != token_length)
+                        return "invalid observation token";
+                    for (const char value : token) {
+                        if (!((value >= '0' && value <= '9') || (value >= 'a' && value <= 'f')
+                              || (value >= 'A' && value <= 'F')))
+                            return "invalid observation token";
+                    }
+                    IPC::Socket2::sock()->postEvent(IPC::Socket2::SEvent{
+                        .event = "mouse-target-ready", .data = std::string{token},
+                    });
+                    return "ok";
+                },
+            });
+            if (!observe_command_)
+                throw std::runtime_error{"Could not register mouse-target observation barrier"};
+        } catch (...) {
+            // A failed second registration must not leave a compositor callback
+            // referring to an object whose constructor did not finish.
+            HyprlandAPI::unregisterHyprCtlCommand(handle_, command_);
+            command_.reset();
+            throw;
+        }
     }
 
     ~TargetBridge() {
+        listeners_.clear();
+        invalidate();
+        if (observe_command_)
+            HyprlandAPI::unregisterHyprCtlCommand(handle_, observe_command_);
         if (command_)
             HyprlandAPI::unregisterHyprCtlCommand(handle_, command_);
     }
 
 private:
+    void invalidate() {
+        if (focus_generation_ == std::numeric_limits<std::uint64_t>::max())
+            generation_exhausted_ = true;
+        else
+            ++focus_generation_;
+        last_surface_.reset();
+        surface_token_.clear();
+        IPC::Socket2::sock()->postEvent(IPC::Socket2::SEvent{
+            .event = "mouse-target-changed",
+            .data = nlohmann::json{{"session", session_}, {"generation", focus_generation_}}.dump(),
+        });
+    }
+
     std::string snapshot() {
         const auto unknown{[this] {
             last_surface_.reset();
             surface_token_.clear();
             return std::string{"null"};
         }};
-        if (!g_pSeatManager || !g_pInputManager || !g_pSessionLockManager
+        if (generation_exhausted_ || listeners_.empty()
+            || !g_pSeatManager || !g_pInputManager || !g_pSessionLockManager
             || g_pSessionLockManager->isSessionLocked() || g_pSeatManager->m_seatGrab
             || g_pInputManager->isConstrained() || g_pInputManager->hasHeldButtons()
             || g_pInputManager->getClickMode() != CLICKMODE_DEFAULT
@@ -98,7 +166,8 @@ private:
             if (surface_sequence_ == std::numeric_limits<std::uint64_t>::max())
                 return unknown();
             last_surface_ = surface;
-            surface_token_ = std::format("{}/{}", window->metadata().stableID(), ++surface_sequence_);
+            surface_token_ = std::format("{}/{}/{}", window->metadata().stableID(),
+                                         focus_generation_, ++surface_sequence_);
         }
         return nlohmann::json{{"session", session_}, {"surface", surface_token_},
                               {"app", window->metadata().appID()}}.dump();
@@ -109,7 +178,11 @@ private:
     WP<CWLSurfaceResource> last_surface_;
     std::string surface_token_;
     std::uint64_t surface_sequence_{0};
+    std::uint64_t focus_generation_{0};
+    bool generation_exhausted_{false};
+    std::vector<CHyprSignalListener> listeners_;
     SP<IPC::Socket1::SCommand> command_;
+    SP<IPC::Socket1::SCommand> observe_command_;
 };
 
 std::unique_ptr<TargetBridge> bridge;

@@ -25,9 +25,12 @@ transport errors, invalid JSON and invalid fields must also remain unknown in
 the calling helper. Never substitute the active keyboard window or cached class.
 
 `session` is new for each module lifetime, including unload/reload. `surface`
-combines a compositor window identity with a generated token and is stable while
-the same supported surface remains observed. Destruction or an observed unknown
-target prevents reuse. Consumers compare the opaque strings, not their structure.
+combines a compositor window identity with a generated token and the bridge's
+focus generation. The generation advances on every actual pointer-focus
+notification, including transitions through unknown surfaces. An A→B→A excursion
+changes the token even when no query observed B. Destruction or an observed
+unknown target also prevents token reuse. Consumers compare the opaque strings,
+not their structure.
 `app` is KWin's resource class or Hyprland's current application ID, with its
 original spelling. Matching policy belongs to the consumer.
 
@@ -45,7 +48,9 @@ about an earlier physical button event**. A query token cannot change that fact.
 Pointer movement, another device, application destruction or a session transition
 can happen before or after the snapshot. The consumer must bound its query,
 validate session/surface continuity, keep full button-sequence ownership and
-retain native input on uncertainty. Neither bridge controls arbitrary third-party
+retain native input on uncertainty. The invalidation stream described below is
+required; querying periodically alone loses transitions between samples.
+Neither bridge controls arbitrary third-party
 plugins that might later consume events. Those combinations need explicit
 acceptance; compilation does not establish their behavior.
 
@@ -56,12 +61,62 @@ KWin effect ID: `mousetarget`. Session D-Bus service and interface:
 return type `s` containing the JSON value. Only a dedicated adaptor's query is
 exported. The effect is disabled by default and paints nothing. A registration
 conflict is reported to the compositor log and leaves the bridge unavailable.
+The snapshot uses `PointerInterface::focusedSurface()`, the effective recipient,
+and requires an attached focus subscription. The D-Bus adaptor emits
+`changed(s session, t generation)` on every effective-focus transition. It also
+invalidates on observed decoration-focus, session-lock, pointer-capability,
+fullscreen-effect, drag start/end and the queried window's class changes. A final
+invalidation precedes D-Bus service removal.
 
 Hyprland module: `mouse_target_hyprland.so`. It registers the exact custom
 hyprctl command `mouse-target`, which returns JSON in either output mode.
-Unloading unregisters that command. It obtains `SeatManager` pointer focus,
+It also registers `mouse-target-observe TOKEN`, matched by the exact prefix
+`mouse-target-observe ` with its trailing space. Unloading unregisters both
+commands. It obtains `SeatManager` pointer focus,
 resolves that exact resource to its owning root Window and reads that Window's
 metadata. It never reconstructs the input target from the client list.
+The plugin owns `pointerFocusChange` subscriptions and posts Socket2 lines:
+
+```text
+mouse-target-changed>>{"session":"opaque bridge lifetime","generation":1}
+```
+
+The generation is an unsigned integer. Socket2 is Hyprland's event stream under
+the selected instance's `.socket2.sock`. The plugin also invalidates on observed
+drag-focus, lock/unlock and application-class changes. It detaches its owned
+listeners, emits final invalidation and then unregisters its query during normal
+plugin exit. Hyprland 0.57.1 uses `IPC::Socket2::sock()->postEvent`, not the old
+EventManager interface.
+
+For the Hyprland observation barrier, first connect and read Socket2, then issue
+`mouse-target-observe TOKEN` using a fresh, unpredictable 32-character ASCII
+hexadecimal token. The plugin validates the exact length and character set,
+posts `mouse-target-ready>>TOKEN` to Socket2, and replies `ok` to the command.
+Only receipt of the matching event on the helper's own event connection proves
+that connection was accepted before the barrier. The command reply alone does
+not establish observation readiness. Wrong, missing or late tokens leave the
+helper unregistered and native input intact. Invalid tokens produce
+`invalid observation token` without posting a ready event.
+
+For KWin, install the D-Bus signal match and await the bus's successful AddMatch
+reply before permitting the initial query. No extra bridge method is required.
+
+Establish the relevant observation barrier before obtaining an initial snapshot
+or registering the helper as a routing authority. Any event, including one
+arriving after a query response, revokes the
+current lease; a late event may conservatively cancel a newer valid lease.
+Invalidate in-flight decisions too. Monitor D-Bus service-owner loss or Socket2
+disconnection, malformed events and missing endpoints; do not retain permission
+across an observation gap. Hyprland removes slow Socket2 clients after 64 queued
+events, so reconnecting requires fresh observation and a new query.
+
+Focus generations preserve transitions even when event delivery is delayed.
+They do not make the separate query and event transports globally ordered or
+eliminate IPC latency. Not every guard has an equivalent public change signal:
+for example, pointer constraints, some non-fullscreen grabs and layout-drag
+start may only be recognized by the next query. Their snapshot guards remain
+fail-native. Those timing combinations need isolated acceptance and must not be
+represented as universally immediate invalidation.
 
 The session helper should use the current compositor's own IPC endpoint, under
 the active desktop user's account. These endpoints do not establish authorization

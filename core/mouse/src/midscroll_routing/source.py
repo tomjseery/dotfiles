@@ -76,6 +76,9 @@ def prepare(module: Path, cache: Path) -> Path:
         text = build.read_text(encoding="utf-8")
         text = text.replace("pkgver=1.15", "pkgver=1.15.r20.g077d1b3")
         text = text.replace(
+            "depends=('python' ", "depends=('python>=3.14' 'python-dbus-fast>=5.2' "
+        )
+        text = text.replace(
             '    install -Dm755 midscroll.py "$pkgdir/usr/bin/midscroll"',
             "    local site_packages\n"
             '    site_packages=$(/usr/bin/python3 -I -S -c "import sysconfig; '
@@ -168,6 +171,7 @@ def inspect_package(package: Path) -> None:
                     "-I",
                     "-c",
                     "import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); "
+                    "import midscroll_routing.session; "
                     "runpy.run_path(sys.argv.pop(1), run_name='__main__')",
                     str(root / purelib),
                     str(root / "usr/bin/midscroll"),
