@@ -9,6 +9,7 @@ home folder; settings mixing behaviour and appearance are merged by key.
 ```text
 core/
   mouse/                 MMB scrolling, app routing, KWin cursor effect
+  agents/keep-awake/      agent activity and automatic idle-sleep prevention
   app-configs/           Chromium and Thunderbird behaviour
   configs/               shell, keyboard, shortcuts, apps and helper commands
   settings/              personal keys from mixed KDE and app configuration
@@ -43,6 +44,7 @@ open the graphical administrator prompt.
 | `./install/core.sh` | Personal configuration **and core mouse behaviour** |
 | `./install/core.sh --configs-only` | Personal configuration without package/service changes |
 | `./install/mouse.sh` | Only the core MMB integration |
+| `./install/agents.sh` | Agent configuration and keep-awake user service; [details](core/agents/keep-awake/README.md) |
 | `./install/system.sh` | Core official packages, services and Chrome system policy |
 | `./install/kde.sh` | KDE shortcuts, keyboard and personal KConfig settings |
 | `./install/kde.sh --system` | Existing SDDM/Wayland login setup |
@@ -100,7 +102,7 @@ styling is applied only by the theme installer.
    ./install/kde.sh --system
    ./install/theme.sh
    ./install/mouse.sh
-   systemctl --user enable --now agent-awake.service
+   ./install/agents.sh
    ```
 
    `core.sh` normally includes mouse setup; `--configs-only` above leaves it
@@ -114,13 +116,13 @@ styling is applied only by the theme installer.
 ## Configuration packages
 
 `core/configs/` contains independently usable Stow packages: `shell`, `apps`,
-`bin`, `kitty`, `vscode`, `agent-awake` and `kde`. Use the shell
+`bin`, `kitty`, `vscode` and `kde`. Use the shell
 installers to include merged settings as well as links. Core includes the
 input and application behaviour; `themes/current/files/` contains the visual
 Stow package. Flatpak Konsole settings use `~/.var/app/org.kde.konsole/config`.
 
-The `agent-awake` user service blocks idle suspend while an agent is working.
-Inspect it with `systemd-inhibit --list` or `journalctl --user -u agent-awake`.
+Agent integrations live under `core/agents/`. The [keep-awake module](core/agents/keep-awake/README.md)
+prevents automatic idle sleep during active turns while allowing manual Sleep.
 
 ## Verification
 

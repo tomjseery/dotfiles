@@ -12,7 +12,8 @@ done
 set -- "${arguments[@]}"
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/common.bash"
 python3 "$repo_root/scripts/apply-settings.py" "$repo_root/core/settings" --dry-run
-stow_configs "$repo_root/core/configs" shell apps bin kitty vscode agent-awake kde
+stow_configs "$repo_root/core/configs" shell apps bin kitty vscode kde
+"$repo_root/install/agents.sh" --configs-only "${dry_run[@]}"
 apply_settings "$repo_root/core/settings"
 loader='source "$HOME/.config/shell/interactive.bash"'
 if ! grep -Fq '.config/shell/interactive.bash' "$HOME/.bashrc" 2>/dev/null; then
