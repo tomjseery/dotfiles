@@ -1,30 +1,28 @@
-# Repository guidance
+# Dotfiles
 
-This repository is the canonical configuration for tomjseery's Arch Linux
-workstation. See [README.md](README.md) for the core, desktop and theme layout
-and its independently usable GNU Stow packages and shell installers.
+## Structure
+- `core/`: personal behaviour, input, shortcuts and app preferences.
+- `desktops/<desktop>/`: session setup and desktop integration.
+- `themes/shared/`: appearance used across desktops or presets.
+- `themes/<desktop>/<preset>/`: preset-specific visuals; `themes/current/` retains the saved KDE profile.
+- `components/`: reusable integrations; `install/`: independent entry points.
 
-## Conventions
+## Working rules
+- Give each setting one owner. Generate runtime copies from that source.
+- Preserve unrelated preferences and unfinished work; change only the requested modules.
+- Compose upstream projects with pinned sources and small patches; cache downloads outside Git.
+- Keep credentials, sessions, caches and generated machine state outside Git.
+- Use Arch-native tools and `pkexec` for root operations; never collect passwords.
+- Test in isolated profiles. Do not log out, reboot or restart the live desktop for verification.
 
-- Target Arch Linux and KDE Plasma. Prefer Arch-native tools (`pacman`, `yay`,
-  systemd, and GNU Stow) over distribution-neutral abstractions.
-- Keep setup scripts idempotent: rerunning one must converge on the same state
-  without duplicating entries or failing because something is already present.
-- Use Bash with `set -euo pipefail` for shell scripts. Run `bash -n` after
-  changing a script, and use `shellcheck` when it is installed.
-- Use `pkexec` for root operations so KDE presents a graphical Polkit prompt.
-  Never use `sudo`, request a password in chat, or put a password in a file,
-  argument, or log.
-- Keep configuration declarative and store durable machine setup in this
-  repository instead of relying on undocumented live-system changes.
-- Keep component-specific behavior, recovery notes, and implementation history
-  with that component's files or in `README.md`, not in this repository-wide
-  instruction file.
-- Do not add credentials, browser sessions, tokens, host inventories, or other
-  machine secrets to the repository.
+## Scoped rules
+Read the relevant folder rules before editing:
+- [Core](core/AGENTS.md)
+- [Desktops](desktops/AGENTS.md)
+- [Themes](themes/AGENTS.md)
+- [Installers](install/AGENTS.md)
 
-## Agent instruction files
-
-`AGENTS.md` is the only editable source of repository instructions.
-`CLAUDE.md` must remain a symlink to `AGENTS.md`; never replace it with a
-separate file.
+## Checks and agent files
+- Run checks affected by the change; use `bash -n` and available ShellCheck for Bash edits.
+- Keep instructions brief and local. Put usage details in the owning README; [layout](README.md).
+- Edit `AGENTS.md`; each `CLAUDE.md` must be a sibling symlink to it.
