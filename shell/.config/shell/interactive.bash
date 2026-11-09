@@ -25,6 +25,12 @@ fi
 command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init bash --cmd cd)"
 command -v starship >/dev/null 2>&1 && eval "$(starship init bash)"
 
+# Agent Tweaks' Codex dictation adapter proxies the TUI through a second PTY
+# and rewrites Kitty keyboard-protocol events.  That turns Enter into a
+# navigation event in interactive pickers.  Keep the adapter disabled even if
+# its installer adds the `codex-hold-to-dictate` alias to ~/.bashrc again.
+export CODEX_DICTATION_DISABLE=1
+
 # Open Yazi and leave the shell in the directory selected on exit.
 y() {
     local cwd_file cwd

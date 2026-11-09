@@ -7,9 +7,6 @@ Rows=1
 blurEnabled=true
 midscrollcursorEnabled=true
 
-[Tiling]
-padding=4
-
 [Tiling][21c1899e-a6be-528e-8f9b-82f2944a529d]
 tiles={"layoutDirection":"horizontal","tiles":[{"width":0.25},{"width":0.5},{"width":0.25}]}
 

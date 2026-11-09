@@ -24,9 +24,9 @@ sortDesc=false
 sortMode=0
 
 [Containments][236][General]
-changedPositions={"desktop:/chrome-lodlkdfmihgonocnmddehnfgiljnadcf-Default.desktop":["2560x1080","4","0"],"desktop:/code.desktop":["2560x1080","3","0"],"desktop:/google-chrome.desktop":["2560x1080","2","0"],"desktop:/vesktop.desktop":["2560x1080","1","0"],"desktop:/youtube-music.desktop":["2560x1080","6","0"],"desktop:/youtube.desktop":["2560x1080","5","0"]}
+changedPositions={"desktop:/Restore Sessions.desktop":["2560x1080","4","0"],"desktop:/audio-switch.desktop":["2560x1080","0","1"],"desktop:/chrome-lodlkdfmihgonocnmddehnfgiljnadcf-Default.desktop":["2560x1080","7","0"],"desktop:/code.desktop":["2560x1080","3","0"],"desktop:/google-chrome.desktop":["2560x1080","2","0"],"desktop:/vesktop.desktop":["2560x1080","1","0"],"desktop:/youtube-music.desktop":["2560x1080","6","0"],"desktop:/youtube.desktop":["2560x1080","5","0"]}
 lastResolution=2560x1080
-positions={"2560x1080":["7","23","desktop:/google-chrome.desktop","2","0","desktop:/chrome-lodlkdfmihgonocnmddehnfgiljnadcf-Default.desktop","4","0","desktop:/vesktop.desktop","1","0","desktop:/youtube.desktop","5","0","desktop:/youtube-music.desktop","6","0","desktop:/code.desktop","3","0","desktop:/chromium.desktop","0","0"]}
+positions={"2560x1080":["8","23","desktop:/chrome-lodlkdfmihgonocnmddehnfgiljnadcf-Default.desktop","7","0","desktop:/youtube.desktop","5","0","desktop:/vesktop.desktop","1","0","desktop:/code.desktop","3","0","desktop:/Restore Sessions.desktop","4","0","desktop:/chromium.desktop","0","0","desktop:/youtube-music.desktop","6","0","desktop:/google-chrome.desktop","2","0","desktop:/audio-switch.desktop","0","1"]}
 sortMode=-1
 
 [Containments][236][Wallpaper][luisbocanegra.smart.video.wallpaper.reborn][General]
@@ -40,7 +40,7 @@ EffectsPauseVideo=
 EffectsPlayVideo=
 FillMode=2
 LastVideo=file:///home/tommy/Pictures/Wallpapers/anime/20151129022206617-england-ultrawide-sparkles-final-live.webm
-LastVideoPosition=5167
+LastVideoPosition=10700
 PauseBatteryLevel=0
 PauseMode=3
 PlaybackRate=1
@@ -67,8 +67,8 @@ immutability=1
 plugin=org.kde.plasma.kickoff
 
 [Containments][237][Applets][238][Configuration]
-popupHeight=517
-popupWidth=655
+popupHeight=525
+popupWidth=663
 
 [Containments][237][Applets][238][Configuration][General]
 favoritesPortedToKAstats=true
@@ -204,4 +204,4 @@ AppletOrder=239;261;238;240;262;241;242;256;257
 
 [ScreenMapping]
 itemsOnDisabledScreens=
-screenMapping=desktop:/youtube-music.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/vesktop.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/youtube.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/google-chrome.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/chromium.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/chrome-lodlkdfmihgonocnmddehnfgiljnadcf-Default.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/code.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c
+screenMapping=desktop:/google-chrome.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/chromium.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/chrome-lodlkdfmihgonocnmddehnfgiljnadcf-Default.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/youtube.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/vesktop.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/Restore Sessions.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/code.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c,desktop:/youtube-music.desktop,0,cc714134-f542-42c1-a3ea-13b4bd43174c
