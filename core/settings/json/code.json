@@ -1,0 +1,12 @@
+{
+    "files.autoSave": "afterDelay",
+    "editor.formatOnSave": true,
+    "editor.semanticHighlighting.enabled": false,
+    "clangd.semanticHighlighting": false,
+    "[cpp]": {
+        "editor.semanticHighlighting.enabled": false
+    },
+    "chat.openOnStartup": "off",
+    "git.confirmSync": false,
+    "editor.selectionClipboard": false
+}
