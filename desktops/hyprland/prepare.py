@@ -66,6 +66,10 @@ def reconstruct(target, home, caches):
     (target / 'presets/blue/wallpaper.png').symlink_to(
         '../../assets/reference/robokoboto-blue-girl-original.png')
     (target / 'presets/charcoal/wallpaper.png').symlink_to('wallpaper-ultrawide-v1.png')
+    icons = json.loads((REPO / 'themes/shared/icons/theme.json').read_text())['name']
+    seed = json.loads((impulse / 'config.json').read_text())
+    seed['appearance']['icons'] = {'theme': icons, 'followScheme': False, 'dynamicColor': False}
+    (impulse / 'config.json').write_text(json.dumps(seed, indent=2) + '\n')
     render_tree(target, home)
 
 
@@ -101,7 +105,7 @@ def fetch_assets(target, previous):
 
 def fingerprint():
     digest = hashlib.sha256()
-    for root in [COMPONENT, REPO / 'themes/hyprland']:
+    for root in [COMPONENT, REPO / 'themes/hyprland', REPO / 'themes/shared/icons']:
         for path in sorted(root.rglob('*')):
             if (path.is_file() and '__pycache__' not in path.parts
                     and 'screenshots' not in path.parts and path.name != 'README.md'):
@@ -222,6 +226,8 @@ def install(home, adopt_trial=False):
                       'local base=os.getenv("HOME") .. "/.local/share/dotfiles/end4-pc-trial/config/hypr/"\n'
                       'package.path=base .. "?.lua;" .. base .. "?/init.lua;" .. package.path\n'
                       'dofile(base .. "hyprland.lua")\n')
+    subprocess.run(['python3', str(REPO / 'themes/shared/icons/apply.py')],
+                   env=dict(os.environ, HOME=str(home)), check=True)
     generate_palette(runtime, home)
     marker.write_text(stamp + '\n')
     print('Hyprland saved and installed. Existing theme/state retained; no session restarted.')

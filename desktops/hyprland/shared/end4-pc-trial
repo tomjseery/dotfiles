@@ -8,7 +8,12 @@ export ILLOGICAL_IMPULSE_VIRTUAL_ENV="$trial/venv"
 export QT_SCALE_FACTOR=0.8
 export PATH="$trial/venv/bin:$PATH"
 export GSETTINGS_BACKEND=memory
-export QS_ICON_THEME=breeze
+# Read the shared Qt icon selection, independent of the colour preset.
+QS_ICON_THEME=$(kreadconfig6 --file "$HOME/.config/kdeglobals" --group Icons --key Theme)
+export QS_ICON_THEME
+if [[ -n $QS_ICON_THEME ]]; then
+    kwriteconfig6 --file "$XDG_CONFIG_HOME/kdeglobals" --group Icons --key Theme "$QS_ICON_THEME"
+fi
 if [[ ${1-} == -p || ${1-} == --path ]]; then
     exec qs "$@"
 fi

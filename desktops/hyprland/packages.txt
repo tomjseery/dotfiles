@@ -27,3 +27,4 @@ ttf-jetbrains-mono-nerd
 ttf-material-symbols-variable
 fontconfig
 breeze-icons
+kconfig

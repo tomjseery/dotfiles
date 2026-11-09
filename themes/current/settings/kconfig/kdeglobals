@@ -121,9 +121,6 @@ ForegroundVisited=203, 166, 247
 [General]
 ColorSchemeHash=1e791a601596b04821e81de9e9f6f2c50005d730
 
-[Icons]
-Theme=Colloid-Dark-OriginalApps
-
 [KDE]
 LookAndFeelPackage=Catppuccin-Mocha-Mauve
 contrast=4

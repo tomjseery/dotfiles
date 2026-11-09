@@ -2,6 +2,7 @@
 set -euo pipefail
 repo_root=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
 mapfile -t packages < "$repo_root/desktops/hyprland/packages.txt"
+packages+=("$(python3 "$repo_root/themes/shared/icons/apply.py" --package)")
 if [[ ${1-} == --dry-run && $# == 1 ]]; then
     printf 'Would install Arch packages through graphical approval:\n'
     printf '  %s\n' "${packages[@]}"
