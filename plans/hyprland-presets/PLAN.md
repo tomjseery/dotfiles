@@ -2,7 +2,8 @@
 
 Authority: user approved Blue and Charcoal, asked whether everything is saved in
 Hyprland dotfiles, and intends to publish after KDE is finished. Save the approved
-setup reproducibly now; no push, desktop restart, logout or power action.
+setup reproducibly. User subsequently authorised publishing to main on
+2026-11-09; no desktop restart, logout or power action is authorised.
 
 Owner: Feature/HyprlandPresets, this checkout. Parent Refactor/AgentKeepAwake at
 5ede283f2f2c3e7b9a4ad7c2dacc45a905065c9d (rebased over the concurrent
@@ -28,8 +29,8 @@ No engineering runtime is installed in this repository.
 - Artwork provenance is recorded; original downloads are checked, generated
   ultrawide assets and prompts retained. No full upstream setup is vendored.
 - Core/KDE remain independently installable; Neovim remains its separate trial.
-- Local commit only. Publication and integration with concurrent KDE work remain
-  explicitly deferred.
+- Publish the completed committed setup to main under the subsequent user
+  authorisation. Preserve unfinished KDE edits outside the published candidate.
 
 ## Trial decisions and evidence
 
@@ -128,3 +129,14 @@ Retire the old machine-local live-profile preview helpers in favour of this
 isolated harness after local integration. Leave Charcoal selected for the user's
 next login, with future choices persistent. Screenshots/guides and repair remain
 local until the user authorises publication after KDE work.
+
+
+## Main publication
+
+User explicitly requested pushing to main. Integrated origin/main's merge-policy
+commit, preserving its agents_may_merge=true declaration and empty required-check
+list. All19 repository tests pass after integration. The candidate includes the
+completed committed core reorganisation, desktop components, Hyprland presets and
+gallery; dirty KDE shortcuts/panel changes and untracked kde/ remain excluded.
+Publish with a normal fast-forward push, then verify the fetched main SHA matches
+the exact candidate. No force push or session restart.
