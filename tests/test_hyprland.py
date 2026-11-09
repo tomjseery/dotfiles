@@ -51,6 +51,24 @@ class HyprlandPresets(unittest.TestCase):
             self.assertEqual((live / 'My_Custom.json').read_text(), '{"my": "preset"}')
             self.assertEqual((live / 'shared.conf').read_text(), 'updated')
 
+    def test_gallery_changes_do_not_trigger_configuration_reinstall(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory)
+            component = repo / 'desktops/hyprland'
+            theme = repo / 'themes/hyprland/blue'
+            component.mkdir(parents=True); theme.mkdir(parents=True)
+            (component / 'shared.conf').write_text('shared configuration')
+            (theme / 'scheme.json').write_text('{}')
+            with patch.object(prepare, 'REPO', repo), patch.object(prepare, 'COMPONENT', component):
+                before = prepare.fingerprint()
+                (theme / 'README.md').write_text('New preset guide')
+                (theme / 'screenshots').mkdir()
+                (theme / 'screenshots/desktop.png').write_bytes(b'new preview')
+                (component / 'README.md').write_text('Updated install guide')
+                self.assertEqual(prepare.fingerprint(), before)
+                (theme / 'scheme.json').write_text('{"new": "palette"}')
+                self.assertNotEqual(prepare.fingerprint(), before)
+
     def test_existing_unrelated_startup_is_refused(self):
         with tempfile.TemporaryDirectory() as directory:
             home = Path(directory)
@@ -85,6 +103,8 @@ class HyprlandPresets(unittest.TestCase):
             self.assertNotIn('ConflictKiller.load();', (shell / 'shell.qml').read_text().replace('// ConflictKiller.load();', ''))
             self.assertIn('end4pc-kitty-', (shell / 'scripts/colors/applycolor.sh').read_text())
             self.assertFalse((build / 'state').exists())
+            self.assertFalse((build / 'presets/blue/README.md').exists())
+            self.assertFalse((build / 'presets/blue/screenshots').exists())
 
 
 if __name__ == '__main__':

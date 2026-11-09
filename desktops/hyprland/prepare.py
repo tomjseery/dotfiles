@@ -52,7 +52,8 @@ def reconstruct(target, home, caches):
         subprocess.run(['patch', '--batch', '--forward', '-p1', '-d', str(root),
                         '-i', str(COMPONENT / patch)], check=True,
                        stdout=subprocess.DEVNULL)
-    shutil.copytree(REPO / 'themes/hyprland', target / 'presets')
+    shutil.copytree(REPO / 'themes/hyprland', target / 'presets',
+                    ignore=shutil.ignore_patterns('README.md', 'screenshots'))
     impulse = config / 'illogical-impulse'
     (impulse / 'presets').mkdir(parents=True)
     (impulse / 'schemes').mkdir()
@@ -102,7 +103,8 @@ def fingerprint():
     digest = hashlib.sha256()
     for root in [COMPONENT, REPO / 'themes/hyprland']:
         for path in sorted(root.rglob('*')):
-            if path.is_file() and '__pycache__' not in path.parts:
+            if (path.is_file() and '__pycache__' not in path.parts
+                    and 'screenshots' not in path.parts and path.name != 'README.md'):
                 digest.update(str(path.relative_to(REPO)).encode())
                 digest.update(path.read_bytes())
     return digest.hexdigest()

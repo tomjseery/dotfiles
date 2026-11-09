@@ -4,6 +4,23 @@ Personal behaviour lives in `core/`. Desktop sessions and appearance have
 separate modules and shell installers. GNU Stow links configuration into your
 home folder; settings mixing behaviour and appearance are merged by key.
 
+## Hyprland desktop gallery
+
+An anime desktop with a top status bar, grouped widgets, a bottom app dock and a
+shared Kitty coding terminal. Choose a look below; both use the same controls
+and remember your last selected preset.
+
+| [Blue Anime](themes/hyprland/blue/README.md) | [Charcoal Anime](themes/hyprland/charcoal/README.md) |
+| --- | --- |
+| [![Blue Anime desktop](themes/hyprland/blue/screenshots/desktop.png)](themes/hyprland/blue/README.md) | [![Charcoal Anime desktop](themes/hyprland/charcoal/screenshots/desktop.png)](themes/hyprland/charcoal/README.md) |
+| Navy, violet and cyan; opaque panels and terminal. | Dark grey; frosted widgets and a translucent terminal. |
+
+[Hyprland installation and controls](desktops/hyprland/README.md) ·
+[Preset comparison and credits](themes/hyprland/README.md)
+
+These are real 2560×1080 nested Hyprland captures. The setup targets Arch Linux;
+it can be installed independently of the personal core and KDE modules.
+
 ## Layout
 
 ```text
@@ -17,6 +34,7 @@ core/
   packages/              core AUR application list
 desktops/hyprland/       shared Hyprland configuration, source pins and patches
 desktops/kde/            KDE login/session setup
+themes/hyprland/         Blue and Charcoal presets, guides and screenshots
 components/qswitch/      optional existing graphical Quickshell switcher
 themes/current/          saved appearance, panel layout, assets and theme packages
 install/                 separate shell entry points
@@ -26,7 +44,8 @@ tests/                   disposable-home installation checks
 
 Core owns your personal preferences, including mouse configuration. Some
 integrations require a particular desktop: the current fallback scroll cursor
-uses KWin and needs an equivalent if Hyprland is added later.
+uses KWin; that cursor effect applies to Plasma, independently of the Hyprland
+appearance setup.
 
 `themes/current/` preserves your existing Catppuccin/Zero Two appearance.
 The approved Hyprland desktop is saved under `desktops/hyprland/`, with Blue

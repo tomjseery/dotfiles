@@ -1,8 +1,23 @@
 # Hyprland desktop
 
-The approved End4-pC / Asuka V2 layout, with a top status dashboard, bottom app
-dock and shared coding terminal. Personal core configuration remains under
+An End4-pC desktop based on the Asuka V2 layout, with a top status bar, grouped
+desktop widgets, bottom app dock and shared Kitty coding terminal. Personal core configuration remains under
 `core/`; Plasma configuration and appearance have their own installers.
+
+## Choose a preset
+
+| [Blue Anime](../../themes/hyprland/blue/README.md) | [Charcoal Anime](../../themes/hyprland/charcoal/README.md) |
+| --- | --- |
+| [![Blue desktop](../../themes/hyprland/blue/screenshots/desktop.png)](../../themes/hyprland/blue/README.md) | [![Charcoal desktop](../../themes/hyprland/charcoal/screenshots/desktop.png)](../../themes/hyprland/charcoal/README.md) |
+| Solid navy terminal and vivid artwork. | Translucent charcoal terminal and frosted widgets. |
+
+Each preset page includes a desktop preview, a real C++ terminal preview, palette
+notes and customisation guidance. [Compare both presets](../../themes/hyprland/README.md).
+Screenshots were captured in a real nested Hyprland session at 2560×1080, using
+shell scale 0.8. The widget arrangement is tuned for that ultrawide size; other
+screen sizes may need layout and scale adjustments.
+
+## How it is organised
 
 - `upstream.json`: exact end-4 Lua base and End4-pC shell revisions, artwork/font
   URLs and SHA-256 checksums. Large upstream trees and original artwork download
@@ -18,11 +33,38 @@ dock and shared coding terminal. Personal core configuration remains under
 
 ## Install
 
-Run `./install/hyprland-packages.sh` for Arch dependencies, then
-`./install/hyprland.sh` for the desktop. Each supports `--dry-run`. The package
-stage uses graphical administrator approval. Chrome, VS Code and YouTube Music
-are optional existing applications; core/AUR installers own their installation.
-The saved shell/base were validated with Hyprland 0.57.1 and Quickshell 0.3.2.
+From an Arch Linux desktop, clone the repository and run only the Hyprland
+installers. Git must already be installed. A working graphical Polkit agent
+provides the administrator prompt for package installation.
+
+```sh
+git clone https://github.com/tomjseery/dotfiles.git
+cd dotfiles
+./install/hyprland-packages.sh --dry-run
+./install/hyprland-packages.sh
+./install/hyprland.sh --dry-run
+./install/hyprland.sh
+```
+
+The package stage installs Hyprland, Quickshell, Kitty, fonts and supporting tools.
+The configuration stage fetches the pinned upstream sources and checksum-checked
+artwork, then installs both presets. It does not run the personal core, KDE or
+login-theme installers. Chrome, VS Code and YouTube Music are optional existing
+applications; adjust the dock pins if you do not use them.
+
+Log out when ready and choose **Hyprland** in your display manager's session
+selector. The installer does not select the session or log you out. Blue is the
+initial preset; choose Charcoal from Settings after login.
+
+The saved shell/base were validated with **Hyprland 0.57.1** and **Quickshell
+0.3.2** on Arch. Other distributions and multi-monitor layouts have not been
+verified. This uses Hyprland's Lua configuration API. Native nested checks cover
+rendering, switching, snapping and persistence; fresh-machine login, real sleep
+and password unlock have not been verified by those checks.
+
+If you already use another Hyprland configuration, back it up first. This
+installer refuses an unrelated `~/.config/hypr/hyprland.lua`; `--adopt-trial` is
+only for this repository's earlier local trial, not an overwrite switch.
 
 For the existing approved local trial, use
 `./install/hyprland.sh --adopt-trial` once. It backs up the configuration to
@@ -77,3 +119,17 @@ populates them. It checks patch application and portable paths. Other checks cov
 preset separation, preserving saved choice/pins on reinstall and refusing unrelated
 startup files. Native nested compositor evidence and its limitations are recorded
 in [the adoption plan](../../plans/hyprland-presets/PLAN.md).
+
+## Capture previews without changing your theme
+
+After installation, `python3 desktops/hyprland/preview.py` creates a temporary
+HOME and a private D-Bus session, starts nested Hyprland through `start-hyprland`,
+checks Charcoal across two full starts, switches natively to Blue and checks the
+next full start. It saves real desktop and C++ terminal screenshots under
+`/tmp/dotfiles-hyprland-gallery/`; use `--output /path/to/gallery` to choose a
+folder. Capturing requires `bat`, `g++` and `grim` in addition to desktop tools.
+
+The preview shares only immutable artwork, fonts and Python dependencies. It has
+its own configuration, state, cache and terminal sockets, with credential lookups
+disabled in that temporary profile. It never switches your real desktop's preset
+or restores a stale copy of your preferences afterward.

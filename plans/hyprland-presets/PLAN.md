@@ -76,3 +76,55 @@ is captured configuration, upstream deltas, palettes and documentation.
 Local integration into the existing checkout is permitted only by fast-forward,
 with unrelated KDE edits preserved. No push or PR is authorised yet. Next external
 action waits for the user's KDE completion/publication decision.
+
+## Public-facing gallery follow-up
+
+User authorises real Hyprland screenshots, individual Blue/Charcoal READMEs and
+navigation from the root README so others can try the setup. Publication remains
+deferred. Continue in the existing isolated Feature/HyprlandPresets checkout;
+preserve concurrent KDE changes. Lane L4 for real capture/installer exclusion and
+verification, L5 for the already-defined README structure. No model switch claimed.
+
+Add authentic desktop and coding-terminal previews, newcomer installation and
+switching instructions, palette/customisation notes and clear upstream/art credits.
+Keep preview images out of installed runtime files and version fingerprints so
+README/gallery changes do not replace a user's running config. Validate relative
+links, inspect every image and rerun focused packaging checks. Commit this follow-up
+separately, then integrate locally without pushing.
+
+## Last-choice report during gallery work
+
+User reports each startup returns to Blue. Reopened persistence acceptance;
+previous shell-restart evidence did not establish full compositor startup and
+must not be treated as proof against the user's observation. Concrete evidence:
+old preview/test helpers apply presets to the production config, and test-presets.py
+unconditionally ends on Blue. Gallery capture restores an earlier snapshot of
+that same production file, potentially overwriting a selection made meanwhile.
+These helpers must be replaced with an isolated temporary HOME/runtime; no save/
+restore of live preferences. Inspect startup path for other preset forcing, test
+whole compositor restarts using native selection, and keep gallery work intact.
+Lane L3 diagnosis then L4 bounded capture-isolation repair. No standards defect
+identified: existing guidance already requires preserving user state; the live
+preview implementation failed that requirement. No standards-source changes.
+
+Completed the gallery and persistence follow-up. Four reviewed, real screenshots
+show desktop and compiled C++ terminal in each preset. Root gallery links to
+Hyprland setup, per-preset guides and the comparison/credit page. Checked49 relative
+README/image links. Six focused tests pass, including documentation exclusions
+from reconstruction and fingerprints; Python compilation and diff checks pass.
+
+Causal repair is in preview.py: reconstruct a temporary HOME with private config,
+state/cache, unique Kitty sockets and temporary-image paths, isolated D-Bus and
+no credential lookups. It uses the real production autostart path through
+start-hyprland, except host-systemd display import is excluded in the sandbox.
+The real theme config and both generated palette files remain byte-identical
+through the complete check. No save/restore operation can overwrite a concurrent
+user choice. It retains Charcoal over two full compositor starts, switches through
+the native apply path and retains Blue over the next start. Evidence:
+~/.local/state/dotfiles/trials/end-4/asuka/isolated-gallery-check.log.
+This is full nested startup evidence, not a physical SDDM login/power/unlock test.
+
+Retire the old machine-local live-profile preview helpers in favour of this
+isolated harness after local integration. Leave Charcoal selected for the user's
+next login, with future choices persistent. Screenshots/guides and repair remain
+local until the user authorises publication after KDE work.

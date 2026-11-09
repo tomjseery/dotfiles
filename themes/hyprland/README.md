@@ -1,5 +1,7 @@
 # Hyprland visual presets
 
+[Dotfiles](../../README.md) · [Install Hyprland](../../desktops/hyprland/README.md)
+
 Both folders use the same desktop, controls, widgets, apps and terminal from
 [`desktops/hyprland`](../../desktops/hyprland/README.md). `settings.json` is a native
 visual overlay; `scheme.json` supplies its named palette. Switching uses the
@@ -7,8 +9,16 @@ existing shell Presets page, with no duplicate desktop stack.
 
 | Preset | Appearance | Selected wallpaper |
 | --- | --- | --- |
-| Blue | Navy surfaces, violet/cyan/pink accents; opaque terminal and panels | Original robokoboto blue anime artwork |
-| Charcoal | Dark grey, muted accents; 0.8 terminal opacity, frosted mini dashboards; subtle pale two-tone clock | Generated ultrawide adaptation of `kita.png`, with less zoom |
+| [Blue Anime](blue/README.md) | Navy surfaces, violet/cyan/pink accents; opaque terminal and panels | Original robokoboto blue anime artwork |
+| [Charcoal Anime](charcoal/README.md) | Dark grey, muted accents; 0.8 terminal opacity, frosted mini dashboards; subtle pale two-tone clock | Generated ultrawide adaptation of `kita.png`, with less zoom |
+
+| Blue preview | Charcoal preview |
+| --- | --- |
+| [![Blue desktop](blue/screenshots/desktop.png)](blue/README.md) | [![Charcoal desktop](charcoal/screenshots/desktop.png)](charcoal/README.md) |
+
+Each preset's README includes its terminal preview and customisation notes.
+To switch: **Win+Escape → Presets → My presets**, then apply either preset.
+Your app pins and controls stay shared; the last selected look persists.
 
 The Blue folder also retains an optional generated wider version; it is not the
 selected wallpaper. Both generated images have their full prompts beside them.
