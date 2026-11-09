@@ -10,7 +10,7 @@ existing shell Presets page, with no duplicate desktop stack.
 | Preset | Appearance | Selected wallpaper |
 | --- | --- | --- |
 | [Blue Anime](blue/README.md) | Navy surfaces, violet/cyan/pink accents; opaque terminal and panels | Original robokoboto blue anime artwork |
-| [Charcoal Anime](charcoal/README.md) | Dark grey, muted accents; 0.85 terminal opacity, frosted mini dashboards; subtle pale two-tone clock | Generated ultrawide adaptation of `kita.png`, with less zoom |
+| [Charcoal Anime](charcoal/README.md) | Dark grey, muted accents; 0.92 terminal opacity, frosted mini dashboards; subtle pale two-tone clock | Generated ultrawide adaptation of `kita.png`, with less zoom |
 
 | Blue preview | Charcoal preview |
 | --- | --- |

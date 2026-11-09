@@ -14,6 +14,7 @@ and remember your last selected preset.
 | --- | --- |
 | [![Blue Anime desktop](themes/hyprland/blue/screenshots/desktop.png)](themes/hyprland/blue/README.md) | [![Charcoal Anime desktop](themes/hyprland/charcoal/screenshots/desktop.png)](themes/hyprland/charcoal/README.md) |
 | Navy, violet and cyan; opaque panels and terminal. | Dark grey; frosted widgets and a translucent terminal. |
+| [![Blue Kitty terminal](themes/hyprland/blue/screenshots/terminal.png)](themes/hyprland/blue/README.md) | [![Charcoal Kitty terminal — 92% opaque with stronger background blur](themes/hyprland/charcoal/screenshots/terminal-92.png)](themes/hyprland/charcoal/README.md) |
 
 [Hyprland installation and controls](desktops/hyprland/README.md) ·
 [Preset comparison and credits](themes/hyprland/README.md)

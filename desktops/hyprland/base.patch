@@ -161,7 +161,7 @@
  -- In other words, I ain't writing a lua parser for this, so please be a good boi/girl/whatever
 +hl.config({ decoration = { rounding = 12 } })
 +hl.config({ decoration = { blur = { enabled = true } } })
-+hl.config({ decoration = { blur = { size = 3 } } })
++hl.config({ decoration = { blur = { size = 8 } } })
 +hl.config({ decoration = { blur = { passes = 3 } } })
 +hl.config({ decoration = { active_opacity = 1 } })
 +hl.config({ decoration = { inactive_opacity = 1 } })
@@ -347,3 +347,10 @@
 -output_path = '~/.local/state/quickshell/user/generated/wallpaper/path.txt'
 +input_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/matugen/templates/wallpaper.txt'
 +output_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/state/quickshell/user/generated/wallpaper/path.txt'
+--- a/hypr/custom/rules.lua
++++ b/hypr/custom/rules.lua
+@@ -1 +1,3 @@
+-
++-- Permit compositor blur for the scoped desktop terminal.
++-- Upstream disables blur for every window; this later rule overrides it.
++hl.window_rule({match = {class = "^end4-pc-terminal$"}, no_blur = false})
