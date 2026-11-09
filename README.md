@@ -231,3 +231,7 @@ browser profiles (cookies/logins), `~/.config/gh` (GitHub token), Discord/
 Vesktop session data, Mullvad/Proton account state, and any crypto wallet
 data. Theme and keybinding *choices* are portable; logged-in sessions and
 secrets are not.
+
+## Repository conventions
+
+[AGENTS.md](AGENTS.md) indexes the short, folder-specific rules for maintaining these modules.

@@ -181,3 +181,13 @@ selected at0.92 opacity. All22 tests pass, including idempotence, unrelated-sett
 preservation, current-preset preservation, launcher inheritance and native import
 isolation. User additionally authorises concise scoped AGENTS rules after this
 implementation; keep durable guidance in a separate Docs slice.
+
+## Scoped repository guidance
+
+User requested concise structure/separation rules after shared icons. Added the
+root ownership index and scoped AGENTS files for core, desktops, Hyprland runtime,
+installers, themes, shared appearance and Hyprland presets. Eight instruction files,
+105 lines total, with headings/bullets and one owner per rule. All are reachable
+from the root index; links resolve. Each CLAUDE.md remains a sibling symlink to
+AGENTS.md, following the user's explicit convention. Runtime modules are unchanged
+by this separate Docs/ConfigurationConventions slice.
