@@ -81,7 +81,28 @@ native host retarget.
 
 ## Reviews
 
-Not yet reviewed. No acceptance or deployment success claimed.
+Full frozen review at `2ac49c83f250b6af82bb65067284baa3a112ff9c` completed:
+changes requested, seven verified findings in the canonical Git-private work order
+resolved by `workflow_ops.py review-path` for run `mouse-native`. Native Codex plus
+independent security/concurrency review ran. No clean watermark claimed.
+Motion-frame ownership, SYN_DROPPED, inactive authority counting, sandbox UID mapping,
+packaged import paths and GUI policy preservation now have causal repairs and tests.
+Focus invalidation composition is implemented; native compositor acceptance and
+incremental review remain open.
+
+The helper uses the already-installed managed `dbus-fast` API for a real awaited
+D-Bus AddMatch barrier; stdlib has no D-Bus implementation, command monitor output
+does not provide an equivalent reliable structured readiness contract. Dependency
+assessment complete against official 5.2 API documentation; dependency is declared
+in Python metadata/lock and Arch runtime package. External untyped wait coroutine
+is isolated with a specific no-untyped-call annotation at that boundary.
+
+Exact rollback source discovered read-only: upstream
+`ac76b554cf6b279d646dee8336b45390d9db3597` matches all four installed midscroll
+executables byte-for-byte. Its Arch PKGBUILD retained pkgver=1.14; the installed
+baseline is 1.15-1. Build a separately verified recovery package from that revision
+and preserve actual configuration/helper/unit state before any later authorized
+installation. No recovery/deployment action has run.
 
 ## Next Steps
 

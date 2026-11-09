@@ -7,7 +7,9 @@ name = "midscroll-routing"
 version = "0.1.0"
 requires-python = ">=3.14"
 description = "Native-default gesture ownership for the pinned midscroll package"
-dependencies = []
+dependencies = [
+    "dbus-fast>=5.2",
+]
 
 [dependency-groups]
 dev = [
