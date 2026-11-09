@@ -1,6 +1,8 @@
 [General]
 BrowserApplication=google-chrome.desktop
 MiddleClickPaste=false
+TerminalApplication=kitty
+TerminalService=kitty.desktop
 
 [KFileDialog Settings]
 Allow Expansion=false
