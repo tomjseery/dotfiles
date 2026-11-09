@@ -50,6 +50,9 @@ CLAUDE.md symlinks, unrelated changes, running sessions and browser data.
 
 ## Next Steps
 
+Work in baby steps, one small reviewed change at a time. The video-inspired
+panel refresh below is a deferred idea, not current implementation scope.
+
 1. Review the browser/defaults and native-decoration proposal below with Tommy.
    Before live changes, resolve the existing delivery checkout and preserve
    unrelated KDE edits. Planning-only work stops before application.
@@ -177,3 +180,16 @@ The user requested this addition to the plan. Browser migration and live
 window-decoration changes remain unapplied. First execution action after
 approval: resolve the active Firefox package, then verify native KDE controls
 with a separate disposable profile before changing the user's browser.
+
+## Deferred idea: cleaner Catppuccin panel
+
+Reference supplied by Tommy:
+https://www.youtube.com/watch?v=ZyPSlm8D9ZQ
+("Aesthetic & Productive: My KDE Plasma Desktop Workflow", Lau).
+
+Tommy likes its calmer, more minimal appearance, especially the cleaner
+taskbar. Keep Catppuccin as a possible base and borrow only selected details;
+this is not a request to reproduce or install the complete setup. The actual
+panel details have not been visually verified here. User explicitly deferred
+this investigation and asked for baby steps. Do not change the panel now;
+revisit this reference only when that small work item is selected.
