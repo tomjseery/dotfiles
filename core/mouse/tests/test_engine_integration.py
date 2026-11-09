@@ -151,3 +151,97 @@ def test_production_pump_forwards_balanced_sequences_and_frames(
         assert output.count("syn") == 3
 
     asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("still_held", [True, False])
+def test_pump_dropped_report_releases_native_buttons(
+    engine: ModuleType, monkeypatch: pytest.MonkeyPatch, still_held: bool
+) -> None:
+    async def scenario() -> None:
+        output: list[tuple[int, int, int]] = []
+        ui = SimpleNamespace(
+            device=None,
+            write=lambda *ev: output.append(ev),
+            syn=lambda: None,
+            close=lambda: None,
+        )
+        monkeypatch.setattr(engine, "make_uinput", lambda _: ui)
+        notifier = engine.Notifier(engine.FocusFilter())
+        left = engine.e.BTN_LEFT
+
+        class Device:
+            name, phys = "synthetic", "synthetic"
+
+            def grab(self) -> None:
+                pass
+
+            def close(self) -> None:
+                pass
+
+            def active_keys(self) -> list[int]:
+                return [left] if still_held else []
+
+            async def async_read_loop(self) -> AsyncIterator[SimpleNamespace]:
+                for kind, code, value in [
+                    (engine.e.EV_KEY, left, 1),
+                    (engine.e.EV_SYN, engine.e.SYN_DROPPED, 0),
+                    (engine.e.EV_KEY, left, 0),
+                ]:
+                    yield SimpleNamespace(type=kind, code=code, value=value)
+                assert output == [
+                    (engine.e.EV_KEY, left, 1),
+                    (engine.e.EV_KEY, left, 0),
+                ]
+
+        await engine.pump("device", Device(), {}, {}, notifier.focus, set(), notifier)
+
+    asyncio.run(scenario())
+
+
+def test_pump_unresolved_motion_never_uses_previous_pointer_target(
+    engine: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        output: list[tuple[int, int, int]] = []
+        ui = SimpleNamespace(
+            device=None,
+            write=lambda *ev: output.append(ev),
+            syn=lambda: None,
+            close=lambda: None,
+        )
+        monkeypatch.setattr(engine, "make_uinput", lambda _: ui)
+        notifier = engine.Notifier(engine.FocusFilter())
+
+        async def stale_query() -> None:
+            pytest.fail("Unsubmitted motion cannot establish a pointer target")
+
+        notifier.routing.query = stale_query
+        middle = engine.e.BTN_MIDDLE
+
+        class Device:
+            name, phys = "synthetic", "synthetic"
+
+            def grab(self) -> None:
+                pass
+
+            def close(self) -> None:
+                pass
+
+            async def async_read_loop(self) -> AsyncIterator[SimpleNamespace]:
+                for kind, code, value in [
+                    (engine.e.EV_REL, engine.e.REL_X, 100),
+                    (engine.e.EV_KEY, middle, 1),
+                    (engine.e.EV_SYN, 0, 0),
+                    (engine.e.EV_KEY, middle, 0),
+                    (engine.e.EV_SYN, 0, 0),
+                ]:
+                    yield SimpleNamespace(type=kind, code=code, value=value)
+
+        await engine.pump("device", Device(), {}, {}, notifier.focus, set(), notifier)
+        assert output == [
+            (engine.e.EV_REL, engine.e.REL_X, 100),
+            (engine.e.EV_KEY, middle, 1),
+            (engine.e.EV_KEY, middle, 0),
+        ]
+
+    asyncio.run(scenario())

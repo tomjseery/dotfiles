@@ -24,7 +24,7 @@ index 67ade43..e144482 100644
                          format="%(levelname)s: %(message)s")
      if not WAYLAND:
 diff --git a/midscroll.py b/midscroll.py
-index 7594c03..1f02b6f 100644
+index 7594c03..ca090fc 100644
 --- a/midscroll.py
 +++ b/midscroll.py
 @@ -11,6 +11,7 @@ import sys
@@ -138,28 +138,42 @@ index 7594c03..1f02b6f 100644
          # A blacklisted app is focused. Never scroll, and stop anything
          # already running (focus changed mid-scroll) so it can't keep
          # scrolling under the blacklisted app.
-@@ -879,7 +898,10 @@ async def pump(path, dev, states, tasks, focus, our_paths, notifier):
+@@ -875,11 +894,19 @@ async def pump(path, dev, states, tasks, focus, our_paths, notifier):
+     if mirror_path:
+         our_paths.add(mirror_path)
+     st = states[path] = State(ui)
+-    held = set()  # non-middle buttons we're currently holding down virtually
++    held = set()  # buttons currently held virtually
++    unresolved_motion = False
      log.info("grabbed %s (%s)", dev.name, path)
      try:
          async for ev in dev.async_read_loop():
 -            if TOGGLE_MODE and ev.type == e.EV_KEY and _is_button(ev.code):
++            if ev.type == e.EV_REL and ev.code in (e.REL_X, e.REL_Y):
++                unresolved_motion = True
 +            if NATIVE_DEFAULT and ev.type == e.EV_KEY and _is_button(ev.code):
-+                if await notifier.routing.button(st.gesture, ev.code, ev.value):
++                if await notifier.routing.button(
++                        st.gesture, ev.code, ev.value,
++                        resolved_motion=not unresolved_motion):
 +                    continue
 +            elif TOGGLE_MODE and ev.type == e.EV_KEY and _is_button(ev.code):
                  if _toggle_key(ev, st, ui, focus):
                      continue
                  # An unrelated button while idle: fall through and forward it.
-@@ -930,6 +952,8 @@ async def pump(path, dev, states, tasks, focus, our_paths, notifier):
+@@ -929,8 +956,12 @@ async def pump(path, dev, states, tasks, focus, our_paths, notifier):
+                                      st.dy * GHOST_SCALE)
                      continue
              if ev.type == e.EV_SYN:
++                if ev.code == e.SYN_REPORT:
++                    unresolved_motion = False
                  if ev.code == e.SYN_DROPPED:
-+                    if NATIVE_DEFAULT:
-+                        notifier.routing.release_device(st.gesture)
                      _resync(ui, dev, held, st)
++                    if NATIVE_DEFAULT:
++                        notifier.routing.resync(st.gesture, held)
                  elif st.release_pending:
                      was_click = _finish_release(st, ui, notifier)
-@@ -952,6 +976,8 @@ async def pump(path, dev, states, tasks, focus, our_paths, notifier):
+                     if was_click:
+@@ -952,6 +983,8 @@ async def pump(path, dev, states, tasks, focus, our_paths, notifier):
      finally:
          # Don't leave a button stuck down on the virtual device if the real
          # one vanished mid-press.
@@ -168,7 +182,7 @@ index 7594c03..1f02b6f 100644
          if held or st.passthrough:
              for code in held:
                  ui.write(e.EV_KEY, code, 0)
-@@ -1118,6 +1144,13 @@ def report_devices():
+@@ -1118,6 +1151,13 @@ def report_devices():
              dev.close()
  
  
@@ -182,7 +196,7 @@ index 7594c03..1f02b6f 100644
  async def main():
      focus = FocusFilter()
      notifier = Notifier(focus)
-@@ -1130,6 +1163,7 @@ async def main():
+@@ -1130,6 +1170,7 @@ async def main():
          log.warning("uinput phys marker did not round-trip; relying on "
                      "device-path tracking to skip our own mirrors")
      tick_task = asyncio.create_task(ticker(states, notifier, focus))
@@ -190,7 +204,7 @@ index 7594c03..1f02b6f 100644
      log.info("running")
      try:
          while True:
-@@ -1162,6 +1196,7 @@ async def main():
+@@ -1162,6 +1203,7 @@ async def main():
                      pump(path, dev, states, tasks, focus, our_paths, notifier))
              await asyncio.sleep(2)
      finally:
@@ -198,7 +212,7 @@ index 7594c03..1f02b6f 100644
          tick_task.cancel()
          for t in list(tasks.values()):
              t.cancel()
-@@ -1203,6 +1238,8 @@ def parse_args(argv=None):
+@@ -1203,6 +1245,8 @@ def parse_args(argv=None):
                 "override it for this run.")
      p.add_argument("--version", action="version",
                     version=f"midscroll {VERSION}")
@@ -207,7 +221,7 @@ index 7594c03..1f02b6f 100644
      p.add_argument("--config", default=CONFIG_PATH, metavar="PATH",
                     help=f"config file to read (default: {CONFIG_PATH})")
      p.add_argument("--debug", action="store_true",
-@@ -1257,6 +1294,8 @@ def cli():
+@@ -1257,6 +1301,8 @@ def cli():
          level=logging.DEBUG if args.debug else logging.INFO,
          format="%(levelname)s: %(message)s")
      load_config(args.config)
