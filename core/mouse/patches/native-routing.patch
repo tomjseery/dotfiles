@@ -1,3 +1,79 @@
+diff --git a/midscroll-apply.py b/midscroll-apply.py
+index a22be16..e9c9d1d 100755
+--- a/midscroll-apply.py
++++ b/midscroll-apply.py
+@@ -35,7 +35,7 @@ MAX_SPECS = 32
+ MAX_SPEC_LEN = 128
+ MAX_SPECS_LEN = 1024
+ # Never settable from here, only preserved.
+-ROOT_ONLY_KEYS = ("ALLOW_KEYBOARDS",)
++ROOT_ONLY_KEYS = ("ALLOW_KEYBOARDS", "NATIVE_DEFAULT", "FALLBACK_APPS")
+ 
+ # Float tunables and whether they must be strictly positive (a zero dead
+ # zone is fine; a zero rate or multiplier would break the daemon).
+@@ -109,7 +109,7 @@ BLACKLIST = {BLACKLIST}
+ # prints all three for every device.
+ EXTRA_DEVICES = {EXTRA_DEVICES}
+ IGNORE_DEVICES = {IGNORE_DEVICES}
+-{ALLOW_KEYBOARDS}"""
++{ALLOW_KEYBOARDS}{ROUTING_POLICY}"""
+ 
+ # Appended only when it is already on: midscroll-apply never sets it.
+ KEYBOARDS_BLOCK = """
+@@ -174,6 +174,45 @@ def keyboards_enabled(path=CONFIG_PATH):
+     return False
+ 
+ 
++def routing_policy(path: str) -> str:
++    """Carry root-owned routing choices through unrelated GUI changes."""
++    try:
++        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
++    except FileNotFoundError:
++        return ""
++    except OSError as error:
++        die(f"cannot read routing policy: {error}")
++    with os.fdopen(fd, "r", encoding="utf-8", errors="replace") as existing:
++        status = os.fstat(existing.fileno())
++        if status.st_uid != 0 or status.st_mode & 0o022:
++            die("refusing to preserve routing policy from an untrusted file")
++        text = existing.read(65537)
++    if len(text) > 65536:
++        die("existing routing configuration is oversized")
++    values = {}
++    for line in text.splitlines():
++        line = line.split("#", 1)[0].strip()
++        if "=" in line:
++            key, value = (part.strip() for part in line.split("=", 1))
++            if key in ("NATIVE_DEFAULT", "FALLBACK_APPS"):
++                values[key] = value
++    lines = []
++    if "NATIVE_DEFAULT" in values:
++        try:
++            enabled = parse_bool(values["NATIVE_DEFAULT"])
++        except ValueError as error:
++            die(f"invalid existing native-default policy: {error}")
++        lines.append("NATIVE_DEFAULT = " + ("true" if enabled else "false"))
++    if "FALLBACK_APPS" in values:
++        apps = [app.strip() for app in values["FALLBACK_APPS"].split(",") if app.strip()]
++        if len(apps) > 32 or any(
++                len(app) > 128 or not re.fullmatch(r"[A-Za-z0-9_.-]+", app)
++                for app in apps):
++            die("invalid existing fallback application policy")
++        lines.append("FALLBACK_APPS = " + ", ".join(apps))
++    return "\n" + "\n".join(lines) + "\n" if lines else ""
++
++
+ def main(argv):
+     os.umask(0o077)
+     if len(argv) > MAX_ARGS:
+@@ -231,6 +270,7 @@ def main(argv):
+         IGNORE_DEVICES=values["IGNORE_DEVICES"],
+         # Carried through untouched: this program can't turn it on or off.
+         ALLOW_KEYBOARDS=KEYBOARDS_BLOCK if keyboards_enabled() else "",
++        ROUTING_POLICY=routing_policy(CONFIG_PATH),
+         **{k: values[k] for k in FLOATS},
+     )
+ 
 diff --git a/midscroll-overlay.py b/midscroll-overlay.py
 index 67ade43..e144482 100644
 --- a/midscroll-overlay.py
