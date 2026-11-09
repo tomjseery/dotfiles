@@ -14,7 +14,7 @@ spec.loader.exec_module(prepare)
 
 class HyprlandPresets(unittest.TestCase):
     def test_visual_overlays_do_not_own_shared_controls(self):
-        for slug, opacity in [('blue', 1), ('charcoal', .8)]:
+        for slug, opacity in [('blue', 1), ('charcoal', .92)]:
             data = json.loads((ROOT / 'themes/hyprland' / slug / 'settings.json').read_text())
             self.assertEqual(set(data), {'appearance', 'background', 'sidebar', '_presetMeta'})
             self.assertEqual(data['appearance']['wallpaperTheming']['terminalGenerationProps']['backgroundOpacity'], opacity)
@@ -94,6 +94,9 @@ class HyprlandPresets(unittest.TestCase):
                 self.assertNotIn('@HOME@', text)
                 self.assertIn('/tmp/another-user', text)
             cfg = json.loads((build / 'config/illogical-impulse/config.json').read_text())
+            self.assertIn('no_blur = false', (build / 'config/hypr/custom/rules.lua').read_text())
+            self.assertEqual(cfg['hyprland']['decoration']['blur']['size'], 8)
+            self.assertIn('blur = { size = 8 }', (build / 'config/hypr/hyprland/shellOverrides/main.lua').read_text())
             self.assertFalse(cfg['bar']['bottom'])
             self.assertEqual(cfg['dock']['position'], 'bottom')
             self.assertEqual(len(cfg['dock']['pinnedApps']), 7)

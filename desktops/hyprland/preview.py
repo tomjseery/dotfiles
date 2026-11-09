@@ -72,6 +72,10 @@ def main(output):
         secret_tool = bin_dir / 'secret-tool'
         secret_tool.write_text('#!/usr/bin/env bash\nexit 1\n')
         secret_tool.chmod(0o755)
+        applications = home / '.local/share/applications'
+        applications.mkdir(parents=True, exist_ok=True)
+        for entry in (prepare.COMPONENT / 'shared/applications').glob('*.desktop'):
+            (applications / entry.name).write_text(entry.read_text().replace('@HOME@', str(home)))
         loader = home / '.config/hypr/hyprland.lua'
         loader.parent.mkdir(parents=True)
         loader.write_text('local base=os.getenv("HOME") .. "/.local/share/dotfiles/end4-pc-trial/config/hypr/"\n'
@@ -115,6 +119,7 @@ def main(output):
         # This is exclusively the temporary profile. Keep desktop screenshots
         # free of optional weather/AI requests and wallpaper-upscale notices.
         cfg['background']['widgets']['clock']['cookie']['aiStyling'] = False
+        cfg['sidebar']['cornerOpen']['enable'] = False
         config.write_text(json.dumps(cfg))
         demo = home / 'cpp-workspace'
         demo.mkdir()
@@ -180,6 +185,10 @@ def main(output):
                     assert terminal.poll() is None, 'Demo terminal failed'
                     subprocess.run([str(bin_dir / 'end-4-snap'), 'right'], env=active, check=True)
                     time.sleep(1)
+                    for panel in ['sidebarRight', 'sidebarLeft', 'settings']:
+                        subprocess.run([str(bin_dir / 'end4-pc-trial'), 'ipc', 'call', panel, 'close'],
+                                       env=active, check=True, stdout=subprocess.DEVNULL)
+                    time.sleep(.5)
                     subprocess.run(['grim', str(output / f'{slug}-terminal.png')], env=active, check=True)
                     print(f'PASS full Hyprland startup retained {title}', flush=True)
                     if attempt == 1:
