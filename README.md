@@ -50,6 +50,7 @@ open the graphical administrator prompt.
 | `./install/aur.sh core` | Core AUR applications |
 | `./install/aur.sh theme` | Current appearance's AUR dependencies |
 | `./install/qswitch.sh` | Optional pinned Qswitch GUI; [component guide](components/qswitch/README.md) |
+| `./install/login.sh` | Astronaut login theme, normal startup login by default; [options](themes/login/astronaut/README.md) |
 
 Core, KDE user config and theme installers accept `--dry-run`. The AUR script
 accepts it after `core` or `theme`. Stow checks conflicts before linking and
