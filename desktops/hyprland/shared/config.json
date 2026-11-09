@@ -384,7 +384,7 @@
       "blur": {
         "enabled": true,
         "passes": 3,
-        "size": 3
+        "size": 8
       },
       "inactiveOpacity": 1,
       "rounding": 12,

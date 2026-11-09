@@ -10,11 +10,11 @@ two pale tones for contrast.
 
 ## Terminal
 
-Kitty uses **0.85 background opacity**, with compositor blur behind it. Text stays
+Kitty uses **0.92 background opacity**, with stronger compositor blur behind it (size 8, three passes). Text stays
 fully opaque. The real preview shows a C++ source file, compilation and output,
 snapped to the right half of the desktop.
 
-![Charcoal Anime with a translucent Kitty C++ workspace beside the desktop widgets](screenshots/terminal.png)
+![Charcoal Anime with a translucent Kitty C++ workspace beside the desktop widgets](screenshots/terminal-92.png)
 
 ## Try it
 
@@ -28,7 +28,7 @@ shortcuts and running terminals, and your last choice is remembered at startup.
 | Base surface | `#24262e` charcoal |
 | Clock light tone | `#e6e8ef` |
 | Clock muted tone | `#c5c9d8` |
-| Kitty background opacity | `0.85` |
+| Kitty background opacity | `0.92` |
 | Widget glass | On, with a charcoal tint |
 
 ## Make it yours
