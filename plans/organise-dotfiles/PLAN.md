@@ -51,9 +51,22 @@ commits; report remaining remote/publication limits honestly.
 - Bash syntax and Python parsing pass. Shellcheck is not installed.
 - One atomic layout slice: existing assets move mechanically; settings splitting,
   link repair and installer paths must converge together. No large unrelated work.
+- Original local preferences saved independently in commit `6b1d566` before the
+  layout commit. Refactor is on `Refactor/DotfilesLayout`.
+- Three tests also pass from a fresh `git archive` export. Removed an empty
+  Vesktop Stow package from selection; its settings are supplied by overlays.
+- Final local core/theme dry runs and split AUR manifest checks pass; working
+  config has MMB cursor enabled and primary-selection/middle-click paste disabled.
+- Native `codex review` was attempted but could not initialise its app server
+  because its profile filesystem is read-only. No independent review is claimed.
+  Parent inspected installer root resolution, Stow conflicts, layer ordering,
+  mixed-file ownership, executable bits, live links and preserved assets.
+- Root package installer now explicitly includes Python for settings merging.
+- Existing CLAUDE.md symlink to AGENTS.md remains intact as the user requires.
+- Local completion verified. No package/root/service operations were rerun.
+  Remote publication was not requested and no push was attempted.
 
 ## Next Steps
 
-Review the migration and installer paths, retain the original local preference
-changes in their own checkpoint, commit the reorganisation and report local
-completion and any remote backup limits.
+None for the authorised local reorganisation. Publication and installing a new
+desktop/theme are separate future actions.
