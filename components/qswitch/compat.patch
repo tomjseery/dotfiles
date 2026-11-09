@@ -1,0 +1,65 @@
+--- a/utils/actions.go
++++ b/utils/actions.go
+@@ -63,9 +63,12 @@
+ 
+ func ApplyFlavour(target string, config Config, debug bool) {
+ 	Debug(debug, "Stopping previous instances (qs, caelestia, whisker)...")
+-	exec.Command("pkill", "-x", "qs").Run()
+-	exec.Command("caelestia", "shell", "-k").Run()
+-	exec.Command("whisker", "shell", "stop").Run()
++	// Stop only explicitly registered Quickshell configurations.
++	for _, flavour := range config.Flavours {
++		if path, ok := GetFlavourPath(flavour); ok && filepath.IsAbs(path) {
++			exec.Command("qs", "--path", path, "kill").Run()
++		}
++	}
+ 
+ 	if target == "dms" {
+ 		Debug(debug, "Starting dms...")
+@@ -79,7 +82,10 @@
+ 		exec.Command("whisker", "shell").Run()
+ 	} else {
+ 		Debug(debug, "Starting qs with target: %s...", target)
+-		cmd := exec.Command("qs", "-c", target)
++		if path, ok := GetFlavourPath(target); ok {
++			target = path
++		}
++		cmd := exec.Command("qs", "--path", target)
+ 		cmd.Start()
+ 	}
+ 
+@@ -97,7 +103,8 @@
+ 		pid := strings.TrimSpace(string(pidData))
+ 		// Check if process is still running
+ 		checkCmd := exec.Command("kill", "-0", pid)
+-		if checkCmd.Run() == nil {
++		commandLine, _ := os.ReadFile(filepath.Join("/proc", pid, "cmdline"))
++		if checkCmd.Run() == nil && strings.Contains(string(commandLine), "\x00-c\x00qswitch\x00") {
+ 			// Process is running, kill it
+ 			exec.Command("kill", pid).Run()
+ 			os.Remove(panelPidFile)
+--- a/utils/state.go
++++ b/utils/state.go
+@@ -54,7 +54,10 @@
+ 				return nil
+ 			}
+ 
+-			if d.IsDir() && filepath.Base(path) == flavour {
++			if filepath.Base(path) == flavour {
++				if info, err := os.Stat(filepath.Join(path, "shell.qml")); err != nil || info.IsDir() {
++					return nil
++				}
+ 				foundPath = path
+ 				return filepath.SkipDir
+ 			}
+--- a/quickshell/shell.qml
++++ b/quickshell/shell.qml
+@@ -149,7 +149,7 @@
+ 
+     PanelWindow {
+         color: "transparent"
+-        WlrLayershell.keyboardFocus: WlrLayershell.Exclusive
++        WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+         WlrLayershell.layer: WlrLayershell.Overlay
+ 
+         anchors {

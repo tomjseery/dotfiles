@@ -15,6 +15,7 @@ core/
   system-configs/        machine policy
   packages/              core AUR application list
 desktops/kde/            KDE login/session setup
+components/qswitch/      optional existing graphical Quickshell switcher
 themes/current/          saved appearance, panel layout, assets and theme packages
 install/                 separate shell entry points
 scripts/                 settings merge helper
@@ -26,8 +27,9 @@ integrations require a particular desktop: the current fallback scroll cursor
 uses KWin and needs an equivalent if Hyprland is added later.
 
 `themes/current/` preserves your existing Catppuccin/Zero Two appearance.
-Persona and Hyprland are not installed. Future profiles belong alongside
-`current/`; large upstream downloads can stay outside Git in the user cache.
+Hyprland and Persona are being tried locally; their trial configuration and
+assets are not saved by this repository. Future adopted profiles belong
+alongside `current/`; large upstream downloads stay outside Git.
 Wallpapers and external themes referenced by this profile remain in their
 existing locations; this repository is not a complete artwork backup.
 
@@ -47,6 +49,7 @@ open the graphical administrator prompt.
 | `./install/theme.sh` | Saved appearance, then reassert core settings |
 | `./install/aur.sh core` | Core AUR applications |
 | `./install/aur.sh theme` | Current appearance's AUR dependencies |
+| `./install/qswitch.sh` | Optional pinned Qswitch GUI; [component guide](components/qswitch/README.md) |
 
 Core, KDE user config and theme installers accept `--dry-run`. The AUR script
 accepts it after `core` or `theme`. Stow checks conflicts before linking and

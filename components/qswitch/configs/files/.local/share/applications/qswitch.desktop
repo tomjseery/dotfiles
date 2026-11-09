@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Quickshell Switcher
+Comment=Choose an installed Quickshell interface in Hyprland
+Exec=qswitch panel
+Icon=preferences-desktop-display
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=Quickshell;shell;switch;Hyprland;
