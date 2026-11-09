@@ -30,7 +30,7 @@ build_dir="${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/midscrollcursor-build"
 plugin_source="$build_dir/lib/kwin/effects/plugins/midscrollcursor.so"
 plugin_target=/usr/lib/qt6/plugins/kwin/effects/plugins/midscrollcursor.so
 
-dependencies=(cmake ninja gcc kwin extra-cmake-modules kcoreaddons kconfig qt6-base)
+dependencies=(cmake ninja gcc kwin extra-cmake-modules kcoreaddons kconfig qt6-base qt6-declarative)
 missing=()
 for package in "${dependencies[@]}"; do
     if ! pacman -Q "$package" &>/dev/null; then
@@ -41,7 +41,12 @@ if (( ${#missing[@]} )); then
     pkexec pacman -S --needed --noconfirm "${missing[@]}"
 fi
 
-cmake -S "$source_dir" -B "$build_dir" -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake_options=()
+if [[ -f $build_dir/CMakeCache.txt ]] && \
+    ! grep -Fqx "CMAKE_HOME_DIRECTORY:INTERNAL=$source_dir" "$build_dir/CMakeCache.txt"; then
+    cmake_options+=(--fresh)
+fi
+cmake "${cmake_options[@]}" -S "$source_dir" -B "$build_dir" -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build "$build_dir" --parallel 2
 
 if [[ $test_mode == true ]]; then

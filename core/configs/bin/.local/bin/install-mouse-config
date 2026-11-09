@@ -55,7 +55,7 @@ install_system_config() {
     local official_dependencies=(
         python python-evdev python-gobject python-cairo gtk4
         gtk4-layer-shell librsvg polkit xorg-xprop cmake ninja gcc
-        extra-cmake-modules kcoreaddons kconfig qt6-base kwin
+        extra-cmake-modules kcoreaddons kconfig qt6-base qt6-declarative kwin
         breeze-cursors
     )
     local missing_dependencies=()

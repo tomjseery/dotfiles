@@ -7,7 +7,7 @@ set(CMAKE_AUTOMOC ON)
 set(BUILD_SHARED_LIBS ON)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Network)
+find_package(Qt6 REQUIRED COMPONENTS Core Gui Network Qml)
 find_package(KF6CoreAddons REQUIRED)
 find_package(KF6Config REQUIRED)
 # KWin's exported CMake package requires Vulkan development headers even for
@@ -28,4 +28,5 @@ target_link_libraries(midscrollcursor PRIVATE
     KF6::ConfigCore
     Qt6::Gui
     Qt6::Network
+    Qt6::Qml
 )
