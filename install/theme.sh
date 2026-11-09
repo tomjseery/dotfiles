@@ -18,3 +18,5 @@ if (( ${#dry_run[@]} == 0 )); then
     "$theme_dir/thunderbird/install.sh"
 fi
 printf 'Current appearance profile prepared. Reopen apps or log in again to reload it.\n'
+
+"$repo_root/install/icons.sh" --configs-only "${dry_run[@]}"
