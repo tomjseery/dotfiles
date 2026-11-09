@@ -78,7 +78,7 @@ def prepare(module: Path, cache: Path) -> Path:
         text = text.replace(
             '    install -Dm755 midscroll.py "$pkgdir/usr/bin/midscroll"',
             "    local site_packages\n"
-            '    site_packages=$(python3 -c "import sysconfig; '
+            '    site_packages=$(/usr/bin/python3 -I -S -c "import sysconfig; '
             "print(sysconfig.get_path('purelib'))\")\n"
             '    install -d "$pkgdir$site_packages"\n'
             '    cp -r midscroll_routing "$pkgdir$site_packages/"\n'
@@ -116,7 +116,67 @@ def main() -> None:
             cwd=prepared / "packaging/arch",
             check=True,
         )
+        packages = list((prepared / "packaging/arch").glob("midscroll-*.pkg.tar.zst"))
+        if len(packages) != 1:
+            raise ValueError("Expected exactly one midscroll package")
+        inspect_package(packages[0])
     print(prepared)
+
+
+def inspect_package(package: Path) -> None:
+    """Reject developer paths and prove imports from the packaged artifact."""
+    purelib = (
+        subprocess.check_output(
+            [
+                "/usr/bin/python3",
+                "-I",
+                "-S",
+                "-c",
+                "import sysconfig; print(sysconfig.get_path('purelib'))",
+            ],
+            text=True,
+        )
+        .strip()
+        .lstrip("/")
+    )
+    required = {
+        "usr/bin/midscroll",
+        "usr/bin/midscroll-router",
+        f"{purelib}/midscroll_routing/__init__.py",
+        f"{purelib}/midscroll_routing/session.py",
+        "etc/systemd/system/midscroll.service.d/native-default.conf",
+    }
+    with tarfile.open(package) as archive:
+        names = {entry.name for entry in archive.getmembers()}
+        if not required <= names:
+            raise ValueError("Package lacks its system-interpreter routing dependency")
+        if any(
+            Path(name).is_absolute()
+            or ".." in Path(name).parts
+            or (not name.startswith(".") and Path(name).parts[0] not in {"etc", "usr"})
+            for name in names
+        ):
+            raise ValueError("Package contains an unexpected installation path")
+        with tempfile.TemporaryDirectory(
+            prefix="midscroll-package-check-"
+        ) as temporary:
+            root = Path(temporary)
+            archive.extractall(root, filter="data")
+            subprocess.run(
+                [
+                    "/usr/bin/python3",
+                    "-I",
+                    "-c",
+                    "import runpy, sys; sys.path.insert(0, sys.argv.pop(1)); "
+                    "runpy.run_path(sys.argv.pop(1), run_name='__main__')",
+                    str(root / purelib),
+                    str(root / "usr/bin/midscroll"),
+                    "--native-default",
+                    "--help",
+                ],
+                stdout=subprocess.DEVNULL,
+                check=True,
+            )
 
 
 if __name__ == "__main__":

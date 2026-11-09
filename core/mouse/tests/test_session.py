@@ -44,6 +44,16 @@ def test_unknown_desktop_never_spawns_a_target_probe(
     assert asyncio.run(session.target("unknown")) is None
 
 
+@pytest.mark.parametrize(
+    ("mapping", "expected"),
+    [("0 0 4294967295\n", 0), ("1000 1000 1\n", 65534), ("42 0 1\n", 42)],
+)
+def test_socket_root_identity_respects_user_namespace(
+    mapping: str, expected: int
+) -> None:
+    assert session.namespace_root_uid(mapping, 65534) == expected
+
+
 def test_bridge_timeout_kills_and_reaps_owned_child(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
