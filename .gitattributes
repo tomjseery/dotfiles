@@ -1,2 +1,4 @@
-# Unified patches encode an empty context line as one space.
-core/mouse/patches/*.patch whitespace=-blank-at-eol
+# Unified-diff context lines intentionally begin with a space.
+components/qswitch/compat.patch whitespace=-blank-at-eol,-space-before-tab
+desktops/hyprland/*.patch whitespace=-blank-at-eol,-space-before-tab
+core/mouse/patches/*.patch whitespace=-blank-at-eol,-space-before-tab
