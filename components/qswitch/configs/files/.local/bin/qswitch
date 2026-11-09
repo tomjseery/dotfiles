@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+config_home=${XDG_CONFIG_HOME:-$HOME/.config}
+runtime="${XDG_DATA_HOME:-$HOME/.local/share}/dotfiles/qswitch/current"
+for argument in "$@"; do
+    case $argument in
+        exp-setup|autofix)
+            printf 'This installation is managed by dotfiles. Edit ~/.config/qswitch/config.json instead.\n' >&2
+            exit 2 ;;
+    esac
+done
+if [[ ! -x $runtime/qswitch ]]; then
+    printf 'Install this optional component with install/qswitch.sh first.\n' >&2
+    exit 1
+fi
+if [[ ${1-} == panel && -z ${HYPRLAND_INSTANCE_SIGNATURE-} ]]; then
+    exec kdialog --msgbox 'Qswitch selects Quickshell interfaces inside Hyprland. Log into Hyprland to use it. Your login screen selects KDE or Hyprland.'
+fi
+case ${1-} in
+    ''|apply|reload|switch-keybinds)
+        if [[ -z ${HYPRLAND_INSTANCE_SIGNATURE-} ]]; then
+            printf 'Run shell switching commands inside your Hyprland session.\n' >&2
+            exit 2
+        fi ;;
+esac
+export PATH="$HOME/.local/bin:$PATH"
+unset QS_CONFIG_NAME QS_CONFIG_PATH QS_MANIFEST
+export QS_ICON_THEME="${QS_ICON_THEME:-breeze}"
+if [[ -r $config_home/qswitch/environment.bash ]]; then
+    source "$config_home/qswitch/environment.bash"
+fi
+exec "$runtime/qswitch" "$@"

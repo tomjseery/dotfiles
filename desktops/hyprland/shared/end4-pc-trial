@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+trial="$HOME/.local/share/dotfiles/end4-pc-trial"
+export XDG_CONFIG_HOME="$trial/config"
+export XDG_STATE_HOME="$trial/state"
+export XDG_CACHE_HOME="$trial/cache"
+export ILLOGICAL_IMPULSE_VIRTUAL_ENV="$trial/venv"
+export QT_SCALE_FACTOR=0.8
+export PATH="$trial/venv/bin:$PATH"
+export GSETTINGS_BACKEND=memory
+export QS_ICON_THEME=breeze
+if [[ ${1-} == -p || ${1-} == --path ]]; then
+    exec qs "$@"
+fi
+exec qs -c ii "$@"

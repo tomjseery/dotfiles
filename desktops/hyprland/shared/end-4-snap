@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""Place the active Hyprland window on either half of its monitor's work area."""
+import json
+import os
+import subprocess
+import sys
+import time
+
+if len(sys.argv) != 2 or sys.argv[1] not in ('left', 'right'):
+    raise SystemExit('Usage: end-4-snap {left|right}')
+
+def query(name):
+    return json.loads(subprocess.check_output(['hyprctl', name, '-j'], text=True))
+
+window = query('activewindow')
+if not window.get('address'):
+    raise SystemExit(0)
+monitor = next(m for m in query('monitors') if m['id'] == window['monitor'])
+scale = monitor['scale']
+width, height = monitor['width'], monitor['height']
+if monitor.get('transform', 0) % 2:
+    width, height = height, width
+left, top, right, bottom = monitor['reserved']
+x0, y0 = monitor['x'] + left, monitor['y'] + top
+width, height = round(width / scale) - left - right, round(height / scale) - top - bottom
+half = width // 2
+x = x0 + (half if sys.argv[1] == 'right' else 0) + 8
+y = y0 + 8
+width = (width - half if sys.argv[1] == 'right' else half) - 16
+height -= 16
+selector = json.dumps('address:' + window['address'])
+expressions = [
+    f'hl.dsp.window.fullscreen_state({{internal=0,client=0,window={selector}}})',
+
+    f'hl.dsp.window.resize({{x={width},y={height},relative=false,window={selector}}})',
+    f'hl.dsp.window.move({{x={x},y={y},relative=false,window={selector}}})',
+]
+if not window["floating"]:
+    expressions.insert(1, f'hl.dsp.window.float({{action="toggle",window={selector}}})')
+for expression in expressions:
+    output = subprocess.check_output(['hyprctl', 'dispatch', expression], text=True)
+    time.sleep(0.15)
+    if os.environ.get('END4_SNAP_DEBUG'):
+        print(expression, query('activewindow').get('size'), flush=True)
+    if output.strip() != 'ok':
+        raise SystemExit(output)

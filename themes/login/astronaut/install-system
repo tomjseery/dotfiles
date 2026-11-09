@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ $EUID -ne 0 ]]; then
+    printf 'Run this system stage through install/login.sh.\n' >&2
+    exit 2
+fi
+override=/etc/sddm.conf.d/zz-dotfiles-login.conf
+marker='# Managed by dotfiles login theme.'
+if [[ -e $override ]] && ! grep -Fqx "$marker" "$override"; then
+    printf 'Refusing to replace an unrelated SDDM override: %s\n' "$override" >&2
+    exit 1
+fi
+if [[ $# -eq 1 && $1 == --restore ]]; then
+    if [[ -f $override ]]; then
+        rm -- "$override"
+    fi
+    printf 'Previous SDDM settings restored. The running session was not restarted.\n'
+    exit 0
+fi
+if [[ $# -ne 2 || ( $2 != --login-screen && $2 != --autologin ) ]]; then
+    printf 'Usage: install-system PREPARED_THEME {--login-screen|--autologin}\n' >&2
+    exit 2
+fi
+prepared=$(readlink -f "$1")
+name=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["name"])' "$prepared/.dotfiles-login.json")
+if [[ ! $name =~ ^dotfiles-astronaut-[a-zA-Z0-9_-]+$ || ! -s $prepared/Main.qml || ! -s $prepared/theme.conf ]]; then
+    printf 'Invalid prepared theme.\n' >&2
+    exit 1
+fi
+user=
+if [[ $2 == --autologin ]]; then
+    if [[ ! ${PKEXEC_UID-} =~ ^[0-9]+$ || $PKEXEC_UID == 0 ]]; then
+        printf 'Automatic login requires a non-root caller through pkexec.\n' >&2
+        exit 1
+    fi
+    user=$(id -un "$PKEXEC_UID")
+fi
+destination="/usr/share/sddm/themes/$name"
+if [[ -e $destination ]]; then
+    cmp -s "$prepared/.dotfiles-login.json" "$destination/.dotfiles-login.json" || {
+        printf 'Existing theme directory is not this managed version.\n' >&2; exit 1;
+    }
+else
+    staging=$(mktemp -d /usr/share/sddm/themes/.dotfiles-astronaut.XXXXXXXX)
+    trap 'rm -rf -- "$staging"' EXIT
+    cp -a "$prepared/." "$staging/"
+    chown -R root:root "$staging"
+    chmod -R a+rX "$staging"
+    mv -- "$staging" "$destination"
+    trap - EXIT
+fi
+font_dir=/usr/local/share/fonts/dotfiles-astronaut
+install -d -m 0755 "$font_dir"
+cp -R "$destination/Fonts/." "$font_dir/"
+chmod -R a+rX "$font_dir"
+fc-cache -f "$font_dir"
+install -d -m 0755 /etc/sddm.conf.d
+temporary=$(mktemp /etc/sddm.conf.d/.dotfiles-login.XXXXXXXX)
+trap 'rm -f -- "$temporary"' EXIT
+{
+    printf '%s\n[Theme]\nCurrent=%s\n' "$marker" "$name"
+    printf '\n[Users]\nRememberLastSession=true\nRememberLastUser=true\n'
+    printf '\n[Autologin]\nUser=%s\nSession=\nRelogin=false\n' "$user"
+} > "$temporary"
+chmod 0644 "$temporary"
+mv -- "$temporary" "$override"
+trap - EXIT
+printf 'Login theme installed; it will be used by the next greeter. No session was restarted.\n'

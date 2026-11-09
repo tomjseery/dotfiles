@@ -1,8 +1,8 @@
 # Repository guidance
 
 This repository is the canonical configuration for tomjseery's Arch Linux
-workstation. It is managed with GNU Stow, with one independently usable package
-per top-level directory.
+workstation. See [README.md](README.md) for the core, desktop and theme layout
+and its independently usable GNU Stow packages and shell installers.
 
 ## Conventions
 

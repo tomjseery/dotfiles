@@ -1,0 +1,5 @@
+catppuccin-plasma-colorscheme-mocha
+catppuccin-sddm-theme-mocha
+klassy-bin
+kvantum-theme-whitesur-git
+plasma6-wallpapers-smart-video-wallpaper-reborn

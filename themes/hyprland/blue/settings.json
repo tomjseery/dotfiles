@@ -1,0 +1,50 @@
+{
+  "appearance": {
+    "palette": {
+      "namedScheme": "blue_anime",
+      "namedSchemePrimary": "",
+      "namedSchemeSecondary": "",
+      "accentColor": "",
+      "type": "scheme-tonal-spot"
+    },
+    "transparency": {
+      "enable": false,
+      "automatic": false,
+      "backgroundTransparency": 0,
+      "contentTransparency": 0
+    },
+    "wallpaperTheming": {
+      "enableQtApps": false,
+      "enableTerminal": true,
+      "enableAppsAndShell": true,
+      "terminalGenerationProps": {
+        "backgroundOpacity": 1,
+        "forceDarkMode": true
+      }
+    }
+  },
+  "background": {
+    "wallpaperPath": "@HOME@/.local/share/dotfiles/end4-pc-trial/presets/blue/wallpaper.png",
+    "lockWall": "@HOME@/.local/share/dotfiles/end4-pc-trial/presets/blue/wallpaper.png",
+    "showBlur": false,
+    "widgets": {
+      "imageCard": {
+        "path": "@HOME@/.local/share/dotfiles/end4-pc-trial/presets/blue/wallpaper.png"
+      },
+      "clock": {
+        "pixel": {
+          "highContrast": false
+        }
+      },
+      "glass": {
+        "enable": false
+      }
+    }
+  },
+  "sidebar": {
+    "bannerImage": "@HOME@/.local/share/dotfiles/end4-pc-trial/presets/blue/wallpaper.png"
+  },
+  "_presetMeta": {
+    "description": "Blue Anime \u2014 opaque terminal and panels"
+  }
+}

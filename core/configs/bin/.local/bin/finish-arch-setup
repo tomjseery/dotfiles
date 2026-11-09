@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $EUID -ne 0 ]]; then
+    printf 'Run this script with pkexec.\n' >&2
+    exit 2
+fi
+
+script_path=$(readlink -f "${BASH_SOURCE[0]}")
+core_root=$(cd "$(dirname "$script_path")/../../../.." && pwd)
+chrome_policy_installer="$core_root/system-configs/chrome-policy/install"
+
+if [[ ! -x $chrome_policy_installer ]]; then
+    printf 'Missing Chrome policy installer: %s\n' "$chrome_policy_installer" >&2
+    exit 1
+fi
+
+pacman -Syu --needed --noconfirm \
+    zsh starship zoxide fzf bat eza btop fastfetch yazi \
+    easyeffects lsp-plugins \
+    gamemode lib32-gamemode mangohud lib32-mangohud gamescope \
+    qemu-base libvirt virt-manager dnsmasq edk2-ovmf \
+    podman distrobox syncthing \
+    firewalld stow python restic pacman-contrib
+
+systemctl enable --now firewalld.service
+systemctl enable --now libvirtd.service
+usermod -aG libvirt tommy
+"$chrome_policy_installer"
+
+printf '\nSystem packages and services are ready. Desktop and theme installation are separate.\n'

@@ -1,0 +1,327 @@
+--- a/modules/common/Appearance.qml
++++ b/modules/common/Appearance.qml
+@@ -33,7 +33,7 @@
+     property real autoContentTransparency: 0.9
+     property real backgroundTransparency: Config?.options.appearance.transparency.enable ? Config?.options.appearance.transparency.automatic ? autoBackgroundTransparency : Config?.options.appearance.transparency.backgroundTransparency : 0
+     property real contentTransparency: Math.max(glassContentTransparency, Config?.options.appearance.transparency.automatic ? autoContentTransparency : Config?.options.appearance.transparency.contentTransparency)
+-    readonly property real glassContentTransparency: Config?.options.background.widgets.glass.enable ? 0.6 : 0
++    readonly property real glassContentTransparency: Config?.options.background.widgets.glass.enable ? (Config?.options.appearance.transparency.enable ? Config.options.appearance.transparency.contentTransparency : 0.6) : 0
+     
+     function getColorFromName(name) {
+         switch (name) {
+--- a/modules/common/Config.qml
++++ b/modules/common/Config.qml
+@@ -139,6 +139,7 @@
+                     property bool lockKonsoleColors: true
+                     property bool enableTerminal: true
+                     property JsonObject terminalGenerationProps: JsonObject {
++                        property real backgroundOpacity: 1.0
+                         property real harmony: 0.6
+                         property real harmonizeThreshold: 100
+                         property real termFgBoost: 0.35
+@@ -331,6 +332,7 @@
+                             property string variant: "badge" // Options: "badge", "morning", "script", "bold"
+                         }
+                         property JsonObject pixel: JsonObject {
++                            property bool highContrast: false
+                             property string orientation: "vertical"
+                         }
+                         property JsonObject quote: JsonObject {
+--- a/modules/common/functions/Session.qml
++++ b/modules/common/functions/Session.qml
+@@ -29,11 +29,10 @@
+     }
+ 
+     function logout() {
+-        closeAllWindows();
+         if (WM.compositor === "niri") {
+             Quickshell.execDetached(["niri", "msg", "action", "quit"]);
+         } else {
+-            Quickshell.execDetached(["pkill", "-i", "Hyprland"]);
++            Quickshell.execDetached(["hyprctl", "dispatch", "hl.dsp.exit()"]);
+         }
+     }
+ 
+@@ -46,17 +45,14 @@
+     }
+ 
+     function poweroff() {
+-        closeAllWindows();
+         Quickshell.execDetached(["bash", "-c", `systemctl poweroff || loginctl poweroff`]);
+     }
+ 
+     function reboot() {
+-        closeAllWindows();
+         Quickshell.execDetached(["bash", "-c", `reboot || loginctl reboot`]);
+     }
+ 
+     function rebootToFirmware() {
+-        closeAllWindows();
+         Quickshell.execDetached(["bash", "-c", `systemctl reboot --firmware-setup || loginctl reboot --firmware-setup`]);
+     }
+ }
+--- a/modules/ii/background/widgets/clock/PixelClock.qml
++++ b/modules/ii/background/widgets/clock/PixelClock.qml
+@@ -24,8 +24,8 @@
+     readonly property string glyphTopRight: DateTime.digitH1
+     readonly property string glyphBottomLeft: DateTime.digitM0
+     readonly property string glyphBottomRight: DateTime.digitM1
+-    readonly property color tintSoft: Appearance.colors.colPrimaryContainer
+-    readonly property color tintBold: Appearance.colors.colPrimary
++    readonly property color tintSoft: Config.options.background.widgets.clock.pixel.highContrast ? Appearance.colors.colOnSurfaceVariant : Appearance.colors.colPrimaryContainer
++    readonly property color tintBold: Config.options.background.widgets.clock.pixel.highContrast ? Appearance.colors.colOnSurface : Appearance.colors.colPrimary
+ 
+     readonly property real fringeSize: isVertical ? root.width * 0.026 : root.height * 0.03
+     readonly property real tileW: isVertical ? root.width * 0.66 : root.width * 0.327
+--- a/modules/ii/background/widgets/timers/TimerWidget.qml
++++ b/modules/ii/background/widgets/timers/TimerWidget.qml
+@@ -38,7 +38,7 @@
+         implicitWidth: root.cardWidth
+         implicitHeight: root.cardHeight
+         widget: root
+-        color: timerCard.bgColor
++        color: Config.options.background.widgets.glass.enable ? "transparent" : timerCard.bgColor
+ 
+         MouseArea {
+             anchors.fill: parent
+--- a/modules/ii/bar/BarContent.qml
++++ b/modules/ii/bar/BarContent.qml
+@@ -294,7 +294,7 @@
+                                 source: root.getWidgetUrl(modelData)
+                                 onLoaded: {
+                                     if (item && item.hasOwnProperty("mirrored"))
+-                                        item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index)
++                                        try { item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index) } catch (e) { /* Some Qt items expose readonly mirrored. */ }
+                                 }
+                             }
+                         }
+@@ -341,7 +341,7 @@
+                             source: root.getWidgetUrl(modelData)
+                             onLoaded: {
+                                 if (item && item.hasOwnProperty("mirrored"))
+-                                    item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index)
++                                    try { item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index) } catch (e) { /* Some Qt items expose readonly mirrored. */ }
+                             }
+                         }
+                     }
+@@ -356,7 +356,7 @@
+                         source: root.getWidgetUrl(modelData)
+                         onLoaded: {
+                             if (item && item.hasOwnProperty("mirrored"))
+-                                item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index)
++                                try { item.mirrored = root.getMirroredForIndex(root.effectiveLeftLayout, index) } catch (e) { /* Some Qt items expose readonly mirrored. */ }
+                         }
+                     }
+                 }
+@@ -458,7 +458,7 @@
+                                 source: root.getWidgetUrl(modelData)
+                                 onLoaded: {
+                                     if (item && item.hasOwnProperty("mirrored"))
+-                                        item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index)
++                                        try { item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index) } catch (e) { /* Some Qt items expose readonly mirrored. */ }
+                                 }
+                             }
+                         }
+@@ -506,7 +506,7 @@
+                             source: root.getWidgetUrl(modelData)
+                             onLoaded: {
+                                 if (item && item.hasOwnProperty("mirrored"))
+-                                    item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index)
++                                    try { item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index) } catch (e) { /* Some Qt items expose readonly mirrored. */ }
+                             }
+                         }
+                     }
+@@ -520,7 +520,7 @@
+                         source: root.getWidgetUrl(modelData)
+                         onLoaded: {
+                             if (item && item.hasOwnProperty("mirrored"))
+-                                item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index)
++                                try { item.mirrored = root.getMirroredForIndex(root.effectiveMiddleLayout, index) } catch (e) { /* Some Qt items expose readonly mirrored. */ }
+                         }
+                     }
+                 }
+@@ -607,7 +607,7 @@
+                                 onLoaded: {
+                                     if (item && item.hasOwnProperty("mirrored")) {
+                                         try {
+-                                            item.mirrored = root.getMirroredForIndex(root.effectiveRightLayout, index);
++                                            try { item.mirrored = root.getMirroredForIndex(root.effectiveRightLayout, index) } catch (e) { /* Some Qt items expose readonly mirrored. */ };
+                                         } catch (e) {}
+                                     }
+                                 }
+@@ -645,7 +645,7 @@
+                             onLoaded: {
+                                 if (item && item.hasOwnProperty("mirrored")) {
+                                     try {
+-                                        item.mirrored = root.getMirroredForIndex(root.effectiveRightLayout, index);
++                                        try { item.mirrored = root.getMirroredForIndex(root.effectiveRightLayout, index) } catch (e) { /* Some Qt items expose readonly mirrored. */ };
+                                     } catch (e) {}
+                                 }
+                             }
+@@ -662,7 +662,7 @@
+                         onLoaded: {
+                             if (item && item.hasOwnProperty("mirrored")) {
+                                 try {
+-                                    item.mirrored = root.getMirroredForIndex(root.effectiveRightLayout, index);
++                                    try { item.mirrored = root.getMirroredForIndex(root.effectiveRightLayout, index) } catch (e) { /* Some Qt items expose readonly mirrored. */ };
+                                 } catch (e) {}
+                             }
+                         }
+--- a/scripts/colors/applycolor.sh
++++ b/scripts/colors/applycolor.sh
+@@ -41,16 +41,15 @@
+     sed -i "s/${colorlist[$i]} #/${colorvalues[$i]#\#}/g" "$STATE_DIR"/user/generated/terminal/kitty-theme.conf
+   done
+ 
+-  # Reload. SIGUSR1 makes kitty re-read its whole config, which also resets the
+-  # font size (zoom) of every window. Where remote control is reachable
+-  # (allow_remote_control + listen_on unix:@kitty-{kitty_pid}) only the colors are
+-  # updated; any instance without it falls back to SIGUSR1.
+-  local pid
+-  for pid in $(pgrep -x kitty); do
+-    kitten @ --to "unix:@kitty-$pid" set-colors --all --configured \
+-      "$STATE_DIR"/user/generated/terminal/kitty-theme.conf >/dev/null 2>&1 \
+-      || kill -SIGUSR1 "$pid" 2>/dev/null
++  local opacity socket
++  opacity=$(jq -r '.appearance.wallpaperTheming.terminalGenerationProps.backgroundOpacity // 1 | if type == "number" and . >= 0.5 and . <= 1 then . else 1 end' "$XDG_CONFIG_HOME/illogical-impulse/config.json")
++  printf '\nbackground_opacity %s\n' "$opacity" >> "$STATE_DIR/user/generated/terminal/kitty-theme.conf"
++  for socket in "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"/end4pc-kitty-*; do
++    [[ -S "$socket" ]] || continue
++    kitten @ --to "unix:$socket" set-colors --all --configured "$STATE_DIR/user/generated/terminal/kitty-theme.conf" >/dev/null 2>&1 || true
++    kitten @ --to "unix:$socket" set-background-opacity --all "$opacity" >/dev/null 2>&1 || true
+   done
++
+ }
+ 
+ apply_anyterm() {
+@@ -69,13 +68,8 @@
+ 
+   sed -i "s/\$alpha/$term_alpha/g" "$STATE_DIR/user/generated/terminal/sequences.txt"
+ 
+-  for file in /dev/pts/*; do
+-    if [[ $file =~ ^/dev/pts/[0-9]+$ ]]; then
+-      {
+-      cat "$STATE_DIR"/user/generated/terminal/sequences.txt >"$file"
+-      } & disown || true
+-    fi
+-  done
++  # Never write colour escape sequences to unrelated terminals.
++
+ }
+ 
+ apply_term() {
+--- a/scripts/colors/named_scheme.py
++++ b/scripts/colors/named_scheme.py
+@@ -1,5 +1,6 @@
+ #!/usr/bin/env python3
+ import argparse
++import os
+ import json
+ import re
+ import sys
+@@ -7,7 +8,7 @@
+ from pathlib import Path
+ 
+ SCHEMES_DIR = Path(__file__).resolve().parent / "schemes"
+-USER_SCHEMES_DIR = Path.home() / ".config/illogical-impulse/schemes"
++USER_SCHEMES_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "illogical-impulse/schemes"
+ 
+ HEX = re.compile(r"^#[0-9a-fA-F]{6}$")
+ SURFACE_KEYS = [
+@@ -27,7 +28,7 @@
+ parser.add_argument("--image", default="")
+ parser.add_argument("--scss")
+ parser.add_argument("--cache")
+-parser.add_argument("--matugen-config", default=str(Path.home() / ".config/matugen/config.toml"))
++parser.add_argument("--matugen-config", default=str(Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "matugen/config.toml"))
+ args = parser.parse_args()
+ 
+ 
+@@ -246,7 +247,7 @@
+ Path(args.cache).write_text(roles["default"]["primary"].upper())
+ 
+ 
+-KDE_SCHEMES_DIR = Path.home() / ".local/share/color-schemes"
++KDE_SCHEMES_DIR = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "quickshell/user/generated/color-schemes"
+ 
+ 
+ def kde_group(bg, bg_alt, fg, fg_inactive, accent, link, visited, negative, neutral, positive, fg_active=None):
+--- a/scripts/colors/switchwall.sh
++++ b/scripts/colors/switchwall.sh
+@@ -113,7 +113,7 @@
+         return
+     fi
+ 
+-    handle_kde_material_you_colors &
++    : # scoped trial: no global KDE theming
+     "$SCRIPT_DIR/code/material-code-set-color.sh" &
+ }
+ 
+@@ -133,7 +133,7 @@
+             return 1
+         }
+     "$SCRIPT_DIR"/applycolor.sh
+-    update_icon_scheme "$mode_flag"
++    : # scoped trial: no global icon changes
+     apply_named_qt &
+     "$SCRIPT_DIR/code/material-code-set-color.sh" &
+ }
+@@ -468,7 +468,7 @@
+ 
+     if [[ -z "$colors_lock_flag" ]]; then
+         "$SCRIPT_DIR"/applycolor.sh
+-        update_icon_scheme "$mode_flag"
++        : # scoped trial: no global icon changes
+     fi
+ 
+     max_width_desired="$(hyprctl monitors -j | jq '([.[].width] | min)' | xargs)"
+--- a/scripts/presets.sh
++++ b/scripts/presets.sh
+@@ -8,11 +8,11 @@
+ #   presets.sh --export-zip <name>
+ #   presets.sh --import-zip <zip_path>
+ 
+-CONFIG_DIR="$HOME/.config/illogical-impulse"
++CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/illogical-impulse"
+ CONFIG_FILE="$CONFIG_DIR/config.json"
+ LOCAL_PRESETS_DIR="$CONFIG_DIR/presets"
+-ONLINE_PRESETS_DIR="$HOME/.cache/quickshell/presets"
+-IMPORTED_PRESETS_DIR="$HOME/.cache/quickshell/presets_imported"
++ONLINE_PRESETS_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/presets"
++IMPORTED_PRESETS_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/presets_imported"
+ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ SWITCHWALL="$SCRIPT_DIR/colors/switchwall.sh"
+ # shellcheck source=lib/config.sh
+@@ -305,7 +305,7 @@
+             rm -f "$img.shrunk"
+         done
+         if $folder_out; then
+-            share_dir="$HOME/.cache/quickshell/presets_share/$name"
++            share_dir="${XDG_CACHE_HOME:-$HOME/.cache}/quickshell/presets_share/$name"
+             rm -rf "$share_dir"
+             mkdir -p "$share_dir"
+             cp -a "$tmpdir"/. "$share_dir"/
+--- a/services/SystemAppearance.qml
++++ b/services/SystemAppearance.qml
+@@ -147,7 +147,7 @@
+     function applyIconScheme() {
+         // Config writes are debounced (50 ms). Wait for the new options to hit
+         // disk before the manager reads them.
+-        iconApplyTimer.restart()
++        // Local desktop trial does not apply system icon overrides.
+     }
+ 
+     function applyIconSchemeNow() {
+--- a/shell.qml
++++ b/shell.qml
+@@ -44,8 +44,8 @@
+     Component.onCompleted: {
+         MaterialThemeLoader.reapplyTheme()
+         Hyprsunset.load()
+-        FirstRunExperience.load()
+-        ConflictKiller.load()
++        // Trial: selected preset is already configured.
++        // Trial: leave other desktop processes alone.
+         Cliphist.refresh()
+         Wallpapers.load()
+         Football.load()

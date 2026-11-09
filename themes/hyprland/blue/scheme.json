@@ -1,0 +1,88 @@
+{
+  "name": "Blue Anime",
+  "defaults": {
+    "primary": "violet",
+    "secondary": "cyan",
+    "tertiary": "pink"
+  },
+  "dark": {
+    "surface_dim": "#0c1220",
+    "surface": "#0c1220",
+    "surface_bright": "#34435f",
+    "surface_container_lowest": "#080e19",
+    "surface_container_low": "#111a2c",
+    "surface_container": "#172139",
+    "surface_container_high": "#202c47",
+    "surface_container_highest": "#2b3856",
+    "on_surface": "#e6edff",
+    "on_surface_variant": "#bac7e6",
+    "outline": "#8392b6",
+    "outline_variant": "#364769",
+    "error": "#ffb4ab",
+    "on_accent": "#0c1220",
+    "accents": {
+      "violet": "#b9a7ff",
+      "cyan": "#71d9f4",
+      "pink": "#f49be4",
+      "blue": "#829fff"
+    },
+    "term": [
+      "#172139",
+      "#ff7a9c",
+      "#92e6a7",
+      "#f5d98c",
+      "#829fff",
+      "#d78fff",
+      "#61d9f4",
+      "#dce6ff",
+      "#637598",
+      "#ff9bb5",
+      "#b7f5c5",
+      "#ffe8ae",
+      "#abc0ff",
+      "#edb8ff",
+      "#a0efff",
+      "#ffffff"
+    ]
+  },
+  "light": {
+    "surface_dim": "#0c1220",
+    "surface": "#0c1220",
+    "surface_bright": "#34435f",
+    "surface_container_lowest": "#080e19",
+    "surface_container_low": "#111a2c",
+    "surface_container": "#172139",
+    "surface_container_high": "#202c47",
+    "surface_container_highest": "#2b3856",
+    "on_surface": "#e6edff",
+    "on_surface_variant": "#bac7e6",
+    "outline": "#8392b6",
+    "outline_variant": "#364769",
+    "error": "#ffb4ab",
+    "on_accent": "#0c1220",
+    "accents": {
+      "violet": "#b9a7ff",
+      "cyan": "#71d9f4",
+      "pink": "#f49be4",
+      "blue": "#829fff"
+    },
+    "term": [
+      "#172139",
+      "#ff7a9c",
+      "#92e6a7",
+      "#f5d98c",
+      "#829fff",
+      "#d78fff",
+      "#61d9f4",
+      "#dce6ff",
+      "#637598",
+      "#ff9bb5",
+      "#b7f5c5",
+      "#ffe8ae",
+      "#abc0ff",
+      "#edb8ff",
+      "#a0efff",
+      "#ffffff"
+    ]
+  }
+}
