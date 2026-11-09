@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=X
+Exec=google-chrome-stable --app=https://x.com --enable-blink-features=MiddleClickAutoscroll
+Icon=applications-internet
+Terminal=false
+Categories=Network;

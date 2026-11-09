@@ -1,0 +1,10 @@
+[Unit]
+Description=Prevent automatic idle sleep while an AI agent is working
+
+[Service]
+ExecStart=%h/.local/bin/agent-awake
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

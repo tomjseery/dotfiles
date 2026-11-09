@@ -1,0 +1,58 @@
+{
+  "appearance": {
+    "palette": {
+      "namedScheme": "charcoal_anime",
+      "namedSchemePrimary": "",
+      "namedSchemeSecondary": "",
+      "accentColor": "",
+      "type": "scheme-tonal-spot"
+    },
+    "transparency": {
+      "enable": true,
+      "automatic": false,
+      "backgroundTransparency": 0.2,
+      "contentTransparency": 0.2
+    },
+    "wallpaperTheming": {
+      "enableQtApps": false,
+      "enableTerminal": true,
+      "enableAppsAndShell": true,
+      "terminalGenerationProps": {
+        "backgroundOpacity": 0.8,
+        "forceDarkMode": true
+      }
+    }
+  },
+  "background": {
+    "wallpaperPath": "@HOME@/.local/share/dotfiles/end4-pc-trial/presets/charcoal/wallpaper.png",
+    "lockWall": "@HOME@/.local/share/dotfiles/end4-pc-trial/presets/charcoal/wallpaper.png",
+    "showBlur": false,
+    "widgets": {
+      "imageCard": {
+        "path": "@HOME@/.local/share/dotfiles/end4-pc-trial/presets/charcoal/wallpaper.png"
+      },
+      "clock": {
+        "pixel": {
+          "highContrast": true
+        }
+      },
+      "glass": {
+        "enable": true,
+        "tint": "layer0",
+        "tintStrength": 0.76,
+        "rimWidth": 0,
+        "pull": 0,
+        "split": 0,
+        "haze": 3,
+        "vividness": 1,
+        "sheen": 0
+      }
+    }
+  },
+  "sidebar": {
+    "bannerImage": "@HOME@/.local/share/dotfiles/end4-pc-trial/presets/charcoal/wallpaper.png"
+  },
+  "_presetMeta": {
+    "description": "Charcoal Anime \u2014 slight panel and terminal transparency"
+  }
+}

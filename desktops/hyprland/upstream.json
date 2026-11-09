@@ -1,0 +1,40 @@
+{
+  "sources": {
+    "base": {
+      "repository": "https://github.com/end-4/dots-hyprland.git",
+      "commit": "cb1c428bf841dabccff1b126904047c28e89ba8c",
+      "cache": "end-4"
+    },
+    "shell": {
+      "repository": "https://github.com/pctrade/end4-pC.git",
+      "commit": "8135351525a916778bc3ead276a85095c6c1e59b",
+      "cache": "end4-pC"
+    }
+  },
+  "assets": [
+    {
+      "url": "https://images2.alphacoders.com/135/1358147.png",
+      "path": "assets/reference/robokoboto-blue-girl-original.png",
+      "sha256": "a46292a8bb2bd673a5733e384b60a9b6c73a644c3a36af20882dee6c88dd60bd",
+      "source": "https://wall.alphacoders.com/big.php?i=1358147 (robokoboto; personal use)"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ViegPhunt/Wallpaper-Collection/main/Wallpapers/kita.png",
+      "path": "assets/reference/kita.png",
+      "sha256": "dd8f57d789350dd6728344ef0583c3f497db860caebabd88947bb73c6ddc2103",
+      "source": "https://github.com/ViegPhunt/Wallpaper-Collection"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/pctrade/end4-pCpresets/main/presets/Asuka_V2/1fc571a40fe1cb4f0f7581635f23abd7.jpg",
+      "path": "assets/Asuka_V2/1fc571a40fe1cb4f0f7581635f23abd7.jpg",
+      "sha256": "1ff6704157f652913bd632177403cbb0218fb0135ba0c7e7dcf6bbb0fb0c2db4",
+      "source": "https://github.com/pctrade/end4-pCpresets/tree/main/presets/Asuka_V2"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/end-4/google-sans-flex/251aa5abd30496368f634e54ce2a508fe5a2fdfa/GoogleSansFlex-VariableFont_GRAD,ROND,opsz,slnt,wdth,wght.ttf",
+      "path": "assets/fonts/GoogleSansFlex-VariableFont_GRAD,ROND,opsz,slnt,wdth,wght.ttf",
+      "sha256": "2510a8b7a24beb1fe8163e9a49813ccfe96b5453444b9443d42665ca4fa320c9",
+      "source": "https://github.com/end-4/google-sans-flex (OFL)"
+    }
+  ]
+}

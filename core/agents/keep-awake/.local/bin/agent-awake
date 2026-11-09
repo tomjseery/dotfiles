@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+module=$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/agent-keep-awake
+exec python3 "$module/activity.py" "$@"

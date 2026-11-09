@@ -1,0 +1,349 @@
+--- a/hypr/custom/keybinds.lua
++++ b/hypr/custom/keybinds.lua
+@@ -1 +1,15 @@
+-hl.bind("CTRL+SUPER+ALT+Slash", hl.dsp.exec_cmd("xdg-open ~/.config/hypr/custom/keybinds.lua"), {description = "Edit user keybinds"} )
++hl.bind("CTRL+SUPER+ALT+Slash", hl.dsp.exec_cmd("xdg-open ~/.local/share/dotfiles/end4-pc-trial/config/hypr/custom/keybinds.lua"), {description = "Edit user keybinds"} )
++
++hl.bind("SUPER + E", hl.dsp.exec_cmd("dolphin"), {description="File manager"})
++hl.bind("CTRL + SHIFT + Escape", hl.dsp.exec_cmd("plasma-systemmonitor --page-name Processes"), {description="System Monitor"})
++hl.bind("SUPER + R", hl.dsp.exec_cmd("$HOME/.local/bin/end4-pc-trial ipc call search toggle"), {description="App overview"})
++
++hl.bind("ALT + Tab", hl.dsp.window.cycle_next({}), {description="Switch to next window"})
++
++-- Familiar half-screen snapping: a single window can leave the other half empty.
++hl.unbind("SUPER + SHIFT + Left")
++hl.unbind("SUPER + SHIFT + Right")
++hl.bind("SUPER + SHIFT + Left", hl.dsp.exec_cmd("$HOME/.local/bin/end-4-snap left"), {description="Snap to left half"})
++hl.bind("SUPER + SHIFT + Right", hl.dsp.exec_cmd("$HOME/.local/bin/end-4-snap right"), {description="Snap to right half"})
++
++hl.bind("SUPER + Escape", hl.dsp.exec_cmd("$HOME/.local/bin/end4-pc-trial ipc call settings toggle"), {description="Desktop settings and presets"})
+--- a/hypr/custom/variables.lua
++++ b/hypr/custom/variables.lua
+@@ -1 +1,5 @@
+-
++terminal = "$HOME/.local/bin/end4-pc-terminal"
++fileManager = "dolphin"
++codeEditor = "code"
++taskManager = "plasma-systemmonitor --page-name Processes"
++settingsApp = "$HOME/.local/bin/end4-pc-trial -p $HOME/.local/share/dotfiles/end4-pc-trial/config/quickshell/ii/settings.qml"
+--- a/hypr/hypridle.conf
++++ b/hypr/hypridle.conf
+@@ -1,26 +1,8 @@
+-$lock_cmd = hyprctl dispatch 'hl.dsp.global("quickshell:lock")' & pidof qs quickshell hyprlock || hyprlock
+-# $lock_cmd = pidof hyprlock || hyprlock
+-$suspend_cmd = systemctl suspend || loginctl suspend
+-
+ general {
+-    lock_cmd = $lock_cmd
++    lock_cmd = @HOME@/.local/bin/end4-pc-trial ipc call lock activate
+     before_sleep_cmd = loginctl lock-session
+-    after_sleep_cmd = hyprctl dispatch 'hl.dsp.global("quickshell:lockFocus")'
+-    inhibit_sleep = 3
+ }
+-
+ listener {
+-    timeout = 300 # 5mins
++    timeout = 600
+     on-timeout = loginctl lock-session
+ }
+-
+-listener {
+-    timeout = 600 # 10mins
+-    on-timeout = hyprctl dispatch 'hl.dsp.dpms({ action = "disable" })'
+-    on-resume = hyprctl dispatch 'hl.dsp.dpms({ action = "enable" })'
+-}
+-
+-listener {
+-    timeout = 900 # 15mins
+-    on-timeout = $suspend_cmd
+-}
+--- a/hypr/hyprland/execs.lua
++++ b/hypr/hyprland/execs.lua
+@@ -1,25 +1,7 @@
+--- put former exec-once commands inside the func and former exec commands outside
+-hl.on("hyprland.start", function ()
+-
+-    -- Bar, wallpaper
+-    hl.exec_cmd("$HOME/.config/hypr/hyprland/scripts/start_geoclue_agent.sh")
+-    hl.exec_cmd("qs -c $qsConfig")
+-    hl.exec_cmd("$HOME/.config/hypr/custom/scripts/__restore_video_wallpaper.sh")
+-
+-    -- Core components (authentication, lock screen, notification daemon)
+-    hl.exec_cmd("gnome-keyring-daemon --start --components=secrets")
+-    hl.exec_cmd("hypridle")
+-    hl.exec_cmd("dbus-update-activation-environment --all")
+-    hl.exec_cmd("sleep 1 && dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP") -- Some fix idk
+-
+-    -- Audio
+-    hl.exec_cmd("easyeffects --hide-window --service-mode")
+-
+-    -- Clipboard: history
+-    --hl.exec_cmd("wl-paste --watch cliphist store")
+-    hl.exec_cmd("wl-paste --type text --watch bash -c 'cliphist store && qs -c $qsConfig ipc call cliphistService update'")
+-    hl.exec_cmd("wl-paste --type image --watch bash -c 'cliphist store && qs -c $qsConfig ipc call cliphistService update'")
+-
+-    -- Cursor
+-    hl.exec_cmd("hyprctl setcursor Bibata-Modern-Classic 24")
++hl.on("hyprland.start", function()
++    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP")
++    hl.exec_cmd("$HOME/.local/bin/end4-pc-trial")
++    hl.exec_cmd("hypridle --config $HOME/.local/share/dotfiles/end4-pc-trial/config/hypr/hypridle.conf")
++    hl.exec_cmd("wl-paste --type text --watch cliphist store")
++    hl.exec_cmd("wl-paste --type image --watch cliphist store")
+ end)
+--- a/hypr/hyprland/keybinds.lua
++++ b/hypr/hyprland/keybinds.lua
+@@ -1,12 +1,12 @@
+ require("hyprland.lib")
+ require("hyprland.variables")
+-if is_file_exists(HOME .. "/.config/hypr/custom/variables.lua") then
++if is_file_exists(HOME .. "/.local/share/dotfiles/end4-pc-trial/config/hypr/custom/variables.lua") then
+     require("custom.variables")
+ end
+ 
+-local qsScripts = "$HOME/.config/quickshell/$qsConfig/scripts"
+-local hyprScripts = "$HOME/.config/hypr/hyprland/scripts"
+-local qsIpcCall = "qs -c $qsConfig ipc call"
++local qsScripts = "$HOME/.local/share/dotfiles/end4-pc-trial/config/quickshell/$qsConfig/scripts"
++local hyprScripts = "$HOME/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprland/scripts"
++local qsIpcCall = "$HOME/.local/bin/end4-pc-trial ipc call"
+ local qsIsAlive = qsIpcCall .. " TEST_ALIVE"
+ 
+ local searchToggle = hl.dsp.exec_cmd(qsIpcCall .. " search toggle || pkill fuzzel || fuzzel")
+@@ -32,10 +32,9 @@
+ hl.bind("SUPER + K", hl.dsp.global("quickshell:oskToggle"), { description = "Shell: Toggle on-screen keyboard" })
+ hl.bind("SUPER + M", hl.dsp.global("quickshell:mediaControlsToggle"), { description = "Shell: Toggle media controls" })
+ hl.bind("SUPER + G", hl.dsp.global("quickshell:overlayToggle"), { description = "Shell: Toggle widget overlay" })
+-hl.bind("CTRL + ALT + Delete", hl.dsp.global("quickshell:sessionToggle"), { description = "Shell: Toggle session menu" })
++hl.bind("CTRL + ALT + Delete", hl.dsp.exec_cmd(qsIpcCall .. " session toggle"), {description="Session menu"})
+ hl.bind("SUPER + J", hl.dsp.global("quickshell:barToggle"), { description = "Shell: Toggle bar" })
+-hl.bind("CTRL + ALT + Delete", hl.dsp.exec_cmd(qsIsAlive .. " || pkill wlogout || wlogout -p layer-shell"))
+-hl.bind("SHIFT + SUPER + ALT + Slash", hl.dsp.exec_cmd("qs -p $HOME/.config/quickshell/$qsConfig/welcome.qml"))
++hl.bind("SHIFT + SUPER + ALT + Slash", hl.dsp.exec_cmd("$HOME/.local/bin/end4-pc-trial -p $HOME/.local/share/dotfiles/end4-pc-trial/config/quickshell/$qsConfig/welcome.qml"))
+ 
+ hl.bind("XF86MonBrightnessUp", hl.dsp.exec_cmd(qsIpcCall .. " brightness increment || brightnessctl s 5%+"),
+     { locked = true, repeating = true })
+@@ -53,7 +52,7 @@
+ hl.bind("CTRL + SUPER + SHIFT + D", hl.dsp.global("quickshell:toggleLightDark"),
+     { description = "Shell: Toggle light/dark mode" })
+ hl.bind("CTRL + SUPER + T", hl.dsp.exec_cmd(qsIsAlive .. " || " .. qsScripts .. "/colors/switchwall.sh"))
+-hl.bind("CTRL + SUPER + R", hl.dsp.exec_cmd("killall ydotool qs quickshell; qs -c $qsConfig &"),
++hl.bind("CTRL + SUPER + R", hl.dsp.exec_cmd("killall ydotool qs quickshell; $HOME/.local/bin/end4-pc-trial &"),
+     { description = "Shell: Restart widgets" })
+ hl.bind("CTRL + SUPER + P", hl.dsp.global("quickshell:panelFamilyCycle"), { description = "Shell: Cycle panel family" })
+ 
+--- a/hypr/hyprland/lib/init.lua
++++ b/hypr/hyprland/lib/init.lua
+@@ -13,7 +13,7 @@
+ function create_if_not_exists(path)
+    if not is_file_exists(path) then
+       os.execute("mkdir -p \"$(dirname \"" .. path .. "\")\"")
+-      os.execute("echo '-- This file will not be overwritten across dots-hyprland updates.\n-- The file name is for the sake of organization and does not matter\n-- See the corresponding files in ~/.config/hypr/hyprland for examples' > \"" .. path .. "\"")
++      os.execute("echo '-- This file will not be overwritten across dots-hyprland updates.\n-- The file name is for the sake of organization and does not matter\n-- See the corresponding files in ~/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprland for examples' > \"" .. path .. "\"")
+       return true
+    end
+    return false
+--- a/hypr/hyprland/services/create_custom_config.lua
++++ b/hypr/hyprland/services/create_custom_config.lua
+@@ -5,7 +5,7 @@
+    if string.len(homeDir) == 0 then
+       return
+    end
+-   local baseCustomDir = homeDir .. "/.config/hypr/custom"
++   local baseCustomDir = homeDir .. "/.local/share/dotfiles/end4-pc-trial/config/hypr/custom"
+    local files = {
+       baseCustomDir .. "/env.lua",
+       baseCustomDir .. "/execs.lua",
+--- a/hypr/hyprland/shellOverrides/main.lua
++++ b/hypr/hyprland/shellOverrides/main.lua
+@@ -1,2 +1,23 @@
+ -- DO NOT EDIT THIS FILE. IT IS MANAGED BY THE SHELL AND FOLLOWS STRICT RULES
+ -- In other words, I ain't writing a lua parser for this, so please be a good boi/girl/whatever
++hl.config({ decoration = { rounding = 12 } })
++hl.config({ decoration = { blur = { enabled = true } } })
++hl.config({ decoration = { blur = { size = 3 } } })
++hl.config({ decoration = { blur = { passes = 3 } } })
++hl.config({ decoration = { active_opacity = 1 } })
++hl.config({ decoration = { inactive_opacity = 1 } })
++hl.config({ general = { border_size = 2 } })
++hl.config({ general = { gaps_in = 2 } })
++hl.config({ general = { gaps_out = 5 } })
++hl.config({ general = { layout = "dwindle" } })
++hl.config({ animations = { enabled = true } })
++hl.config({ input = { kb_layout = "us" } })
++hl.config({ input = { numlock_by_default = true } })
++hl.config({ input = { repeat_delay = 250 } })
++hl.config({ input = { repeat_rate = 35 } })
++hl.config({ input = { follow_mouse = 1 } })
++hl.config({ input = { touchpad = { natural_scroll = false } } })
++hl.config({ input = { touchpad = { disable_while_typing = true } } })
++hl.config({ input = { touchpad = { clickfinger_behavior = false } } })
++hl.config({ input = { touchpad = { scroll_factor = 0.7 } } })
++hl.config({ misc = { focus_on_activate = false } })
+--- a/hypr/hyprland/variables.lua
++++ b/hypr/hyprland/variables.lua
+@@ -1,19 +1,19 @@
+ -- Default variables
+--- Copy these to ~/.config/hypr/custom/variables.lua to make changes in a dotfiles-update-friendly manner
++-- Copy these to ~/.local/share/dotfiles/end4-pc-trial/config/hypr/custom/variables.lua to make changes in a dotfiles-update-friendly manner
+ 
+--- The folder within ~/.config/quickshell containing the config
++-- The folder within ~/.local/share/dotfiles/end4-pc-trial/config/quickshell containing the config
+ hl.env("qsConfig", "ii")
+ 
+ -- Apps
+ -- PULL REQUESTS ADDING MORE WILL NOT BE ACCEPTED, CONFIG FOR YOURSELF
+-terminal = "~/.config/hypr/hyprland/scripts/launch_first_available.sh 'foot' 'kitty -1' 'alacritty' 'wezterm' 'konsole' 'kgx' 'uxterm' 'xterm'"
+-fileManager = "~/.config/hypr/hyprland/scripts/launch_first_available.sh 'dolphin' 'nautilus' 'nemo' 'thunar' 'kitty -1 fish -c yazi'"
+-browser = "~/.config/hypr/hyprland/scripts/launch_first_available.sh 'google-chrome-stable' 'zen-browser' 'firefox' 'brave' 'chromium' 'microsoft-edge-stable' 'opera' 'librewolf'"
+-codeEditor = "~/.config/hypr/hyprland/scripts/launch_first_available.sh 'windsurf' 'antigravity' 'code' 'codium' 'cursor' 'zed' 'zedit' 'zeditor' 'kate' 'gnome-text-editor' 'emacs' 'command -v nvim && kitty -1 nvim' 'command -v micro && kitty -1 micro'"
+-officeSoftware = "~/.config/hypr/hyprland/scripts/launch_first_available.sh 'wps' 'onlyoffice-desktopeditors' 'libreoffice'"
+-textEditor = "~/.config/hypr/hyprland/scripts/launch_first_available.sh 'kate' 'gnome-text-editor' 'emacs'"
+-volumeMixer = "~/.config/hypr/hyprland/scripts/launch_first_available.sh 'pavucontrol-qt' 'pavucontrol'"
+-settingsApp = "XDG_CURRENT_DESKTOP=gnome ~/.config/hypr/hyprland/scripts/launch_first_available.sh 'qs -p ~/.config/quickshell/$qsConfig/settings.qml' 'systemsettings' 'gnome-control-center' 'better-control'"
+-taskManager = "~/.config/hypr/hyprland/scripts/launch_first_available.sh 'gnome-system-monitor' 'plasma-systemmonitor --page-name Processes' 'command -v btop && kitty -1 fish -c btop'"
++terminal = "~/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprland/scripts/launch_first_available.sh 'foot' 'kitty -1' 'alacritty' 'wezterm' 'konsole' 'kgx' 'uxterm' 'xterm'"
++fileManager = "~/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprland/scripts/launch_first_available.sh 'dolphin' 'nautilus' 'nemo' 'thunar' 'kitty -1 fish -c yazi'"
++browser = "~/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprland/scripts/launch_first_available.sh 'google-chrome-stable' 'zen-browser' 'firefox' 'brave' 'chromium' 'microsoft-edge-stable' 'opera' 'librewolf'"
++codeEditor = "~/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprland/scripts/launch_first_available.sh 'windsurf' 'antigravity' 'code' 'codium' 'cursor' 'zed' 'zedit' 'zeditor' 'kate' 'gnome-text-editor' 'emacs' 'command -v nvim && kitty -1 nvim' 'command -v micro && kitty -1 micro'"
++officeSoftware = "~/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprland/scripts/launch_first_available.sh 'wps' 'onlyoffice-desktopeditors' 'libreoffice'"
++textEditor = "~/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprland/scripts/launch_first_available.sh 'kate' 'gnome-text-editor' 'emacs'"
++volumeMixer = "~/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprland/scripts/launch_first_available.sh 'pavucontrol-qt' 'pavucontrol'"
++settingsApp = "XDG_CURRENT_DESKTOP=gnome ~/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprland/scripts/launch_first_available.sh '$HOME/.local/bin/end4-pc-trial -p ~/.local/share/dotfiles/end4-pc-trial/config/quickshell/$qsConfig/settings.qml' 'systemsettings' 'gnome-control-center' 'better-control'"
++taskManager = "~/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprland/scripts/launch_first_available.sh 'gnome-system-monitor' 'plasma-systemmonitor --page-name Processes' 'command -v btop && kitty -1 fish -c btop'"
+ 
+ workspaceGroupSize = 10
+--- a/hypr/hyprland.lua
++++ b/hypr/hyprland.lua
+@@ -7,7 +7,7 @@
+ 
+ -- Environment variables --
+ require("hyprland.env")
+-if is_file_exists(HOME .. "/.config/hypr/custom/env.lua") then
++if is_file_exists(HOME .. "/.local/share/dotfiles/end4-pc-trial/config/hypr/custom/env.lua") then
+     require("custom.env")
+ end
+ 
+@@ -19,24 +19,24 @@
+ require("hyprland.keybinds")
+ 
+ -- Custom configurations --
+-if is_file_exists(HOME .. "/.config/hypr/custom/execs.lua") then
++if is_file_exists(HOME .. "/.local/share/dotfiles/end4-pc-trial/config/hypr/custom/execs.lua") then
+     require("custom.execs")
+ end
+-if is_file_exists(HOME .. "/.config/hypr/custom/general.lua") then
++if is_file_exists(HOME .. "/.local/share/dotfiles/end4-pc-trial/config/hypr/custom/general.lua") then
+     require("custom.general")
+ end
+-if is_file_exists(HOME .. "/.config/hypr/custom/rules.lua") then
++if is_file_exists(HOME .. "/.local/share/dotfiles/end4-pc-trial/config/hypr/custom/rules.lua") then
+     require("custom.rules")
+ end
+-if is_file_exists(HOME .. "/.config/hypr/custom/keybinds.lua") then
++if is_file_exists(HOME .. "/.local/share/dotfiles/end4-pc-trial/config/hypr/custom/keybinds.lua") then
+     require("custom.keybinds")
+ end
+ 
+ -- nwg-displays support --
+-if is_file_exists(HOME .. "/.config/hypr/workspaces.lua") then
++if is_file_exists(HOME .. "/.local/share/dotfiles/end4-pc-trial/config/hypr/workspaces.lua") then
+     require("workspaces")
+ end
+-if is_file_exists(HOME .. "/.config/hypr/monitors.lua") then
++if is_file_exists(HOME .. "/.local/share/dotfiles/end4-pc-trial/config/hypr/monitors.lua") then
+     require("monitors")
+ end
+ 
+--- a/hypr/hyprlock.conf
++++ b/hypr/hyprlock.conf
+@@ -1,4 +1,4 @@
+-source=~/.config/hypr/hyprlock/colors.conf
++source=~/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprlock/colors.conf
+ 
+ background {
+     color = rgba(181818FF)
+--- a/kitty/kitty.conf
++++ b/kitty/kitty.conf
+@@ -1,5 +1,5 @@
+ # Theming
+-include ~/.local/state/quickshell/user/generated/terminal/kitty-theme.conf
++include @HOME@/.local/share/dotfiles/end4-pc-trial/state/quickshell/user/generated/terminal/kitty-theme.conf
+ 
+ # Font
+ font_family      JetBrains Mono Nerd Font
+@@ -10,13 +10,13 @@
+ cursor_trail 1
+ 
+ # Padding (why weird value? consistency with foot)
+-window_margin_width 21.75
++window_margin_width 8
+ 
+ # No stupid close confirmation
+ confirm_os_window_close 0
+ 
+ # Use fish shell
+-shell fish
++shell /bin/bash
+ 
+ # Copy
+ map ctrl+c    copy_or_interrupt
+@@ -37,3 +37,6 @@
+ map ctrl+kp_subtract       change_font_size all -1
+ map ctrl+0 change_font_size all 0
+ map ctrl+kp_0 change_font_size all 0
++
++
++dynamic_background_opacity yes
+--- a/matugen/config.toml
++++ b/matugen/config.toml
+@@ -2,33 +2,33 @@
+ version_check = false
+ 
+ [templates.m3colors]
+-input_path = '~/.config/matugen/templates/colors.json'
+-output_path = '~/.local/state/quickshell/user/generated/colors.json'
++input_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/matugen/templates/colors.json'
++output_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/state/quickshell/user/generated/colors.json'
+ 
+ [templates.hyprland]
+-input_path = '~/.config/matugen/templates/hyprland/colors.lua'
+-output_path = '~/.config/hypr/hyprland/colors.lua'
++input_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/matugen/templates/hyprland/colors.lua'
++output_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprland/colors.lua'
+ 
+ [templates.hyprlock]
+-input_path = '~/.config/matugen/templates/hyprland/hyprlock-colors.conf'
+-output_path = '~/.config/hypr/hyprlock/colors.conf'
++input_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/matugen/templates/hyprland/hyprlock-colors.conf'
++output_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/hypr/hyprlock/colors.conf'
+ 
+ [templates.fuzzel]
+-input_path = '~/.config/matugen/templates/fuzzel/fuzzel_theme.ini'
+-output_path = '~/.config/fuzzel/fuzzel_theme.ini'
++input_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/matugen/templates/fuzzel/fuzzel_theme.ini'
++output_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/fuzzel/fuzzel_theme.ini'
+ 
+ [templates.gtk3]
+-input_path = '~/.config/matugen/templates/gtk-3.0/gtk.css'
+-output_path = '~/.config/gtk-3.0/gtk.css'
++input_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/matugen/templates/gtk-3.0/gtk.css'
++output_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/gtk-3.0/gtk.css'
+ 
+ [templates.gtk4]
+-input_path = '~/.config/matugen/templates/gtk-4.0/gtk.css'
+-output_path = '~/.config/gtk-4.0/gtk.css'
++input_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/matugen/templates/gtk-4.0/gtk.css'
++output_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/gtk-4.0/gtk.css'
+ 
+ [templates.kde_colors]
+-input_path = '~/.config/matugen/templates/kde/color.txt'
+-output_path = '~/.local/state/quickshell/user/generated/color.txt'
++input_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/matugen/templates/kde/color.txt'
++output_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/state/quickshell/user/generated/color.txt'
+ 
+ [templates.wallpaper]
+-input_path = '~/.config/matugen/templates/wallpaper.txt'
+-output_path = '~/.local/state/quickshell/user/generated/wallpaper/path.txt'
++input_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/config/matugen/templates/wallpaper.txt'
++output_path = '@HOME@/.local/share/dotfiles/end4-pc-trial/state/quickshell/user/generated/wallpaper/path.txt'

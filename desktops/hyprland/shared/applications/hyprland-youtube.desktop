@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=YouTube
+Exec=google-chrome-stable --app=https://www.youtube.com
+Icon=applications-multimedia
+Terminal=false
+Categories=AudioVideo;

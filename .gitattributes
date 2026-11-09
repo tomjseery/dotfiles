@@ -1,0 +1,3 @@
+# Unified-diff context lines intentionally begin with a space.
+components/qswitch/compat.patch whitespace=-blank-at-eol,-space-before-tab
+desktops/hyprland/*.patch whitespace=-blank-at-eol,-space-before-tab
