@@ -14,7 +14,7 @@ spec.loader.exec_module(prepare)
 
 class HyprlandPresets(unittest.TestCase):
     def test_visual_overlays_do_not_own_shared_controls(self):
-        for slug, opacity in [('blue', 1), ('charcoal', .8)]:
+        for slug, opacity in [('blue', 1), ('charcoal', .85)]:
             data = json.loads((ROOT / 'themes/hyprland' / slug / 'settings.json').read_text())
             self.assertEqual(set(data), {'appearance', 'background', 'sidebar', '_presetMeta'})
             self.assertEqual(data['appearance']['wallpaperTheming']['terminalGenerationProps']['backgroundOpacity'], opacity)
