@@ -65,6 +65,9 @@ update them, and installation preserves keys the fragments do not own. Save
 intentional changes to the appropriate fragment before reapplying an installer.
 Existing JSON settings must be valid JSON; comments cause a safe refusal.
 Kitty's core config includes a separate `theme.conf` for colours and background.
+It then loads an optional `desktop-${XDG_CURRENT_DESKTOP}.conf`; the current
+profile supplies `desktop-KDE.conf` for a solid grey background and bold font
+in Plasma, leaving other desktops on the base theme.
 
 Apply a changed Plasma panel layout outside a running Plasma session, from a
 text console or another desktop session. The theme installer refuses to change
