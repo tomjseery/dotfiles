@@ -110,7 +110,7 @@ styling is applied only by the theme installer.
 ## Configuration packages
 
 `core/configs/` contains independently usable Stow packages: `shell`, `apps`,
-`bin`, `kitty`, `vscode`, `vesktop`, `agent-awake` and `kde`. Use the shell
+`bin`, `kitty`, `vscode`, `agent-awake` and `kde`. Use the shell
 installers to include merged settings as well as links. Core includes the
 input and application behaviour; `themes/current/files/` contains the visual
 Stow package. Flatpak Konsole settings use `~/.var/app/org.kde.konsole/config`.
