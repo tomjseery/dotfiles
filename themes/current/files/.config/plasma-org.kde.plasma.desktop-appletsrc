@@ -83,9 +83,12 @@ immutability=1
 plugin=org.kde.plasma.icontasks
 
 [Containments][237][Applets][240][Configuration][General]
+groupingStrategy=1
+groupPopups=true
 iconSpacing=0
 launchers=applications:systemsettings.desktop,applications:org.kde.discover.desktop,preferred://filemanager,preferred://browser,applications:org.mozilla.Thunderbird.desktop,applications:claude.desktop,applications:mullvad-vpn.desktop,applications:youtube-music.desktop,applications:kitty.desktop,applications:chrome-www.youtube.com__-Default.desktop,applications:chrome-lodlkdfmihgonocnmddehnfgiljnadcf-Default.desktop,applications:vesktop.desktop
 showToolTips=true
+sortingStrategy=1
 
 [Containments][237][Applets][241]
 immutability=1
