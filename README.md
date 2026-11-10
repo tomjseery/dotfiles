@@ -101,6 +101,16 @@ that layout while Plasma is running. Reopen apps or log in again to reload
 settings. Mouse installation and theme installation are independent; Thunderbird
 styling is applied only by the theme installer.
 
+The saved panel uses Icons-only Task Manager with applications grouped by
+program and manual sorting. Running windows occupy their pinned icon, where
+the Plasma style supplies the running and active backgrounds. The browser pin
+follows the default browser rather than naming a particular browser.
+
+If a changed application launcher appears separately from its pin, rebuild
+KDE's application database with `kbuildsycoca6 --noincremental` from the desktop
+session's locale. Custom launchers sharing the same `StartupWMClass` can make
+window matching ambiguous; changing grouping settings does not resolve that.
+
 ## Setting up a new machine
 
 1. Install Git and clone the repository:
@@ -221,3 +231,9 @@ secrets are not.
 ## Repository conventions
 
 [AGENTS.md](AGENTS.md) indexes the short, folder-specific rules for maintaining these modules.
+
+## License
+
+Original code is available under the [MIT License](LICENSE.md), except where a
+file carries its own license notice. Third-party components, patches and artwork
+retain their respective licenses; the MIT license does not replace those terms.
