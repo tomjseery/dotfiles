@@ -175,18 +175,13 @@ if [[ $mode == --recover ]]; then
   pkexec "$module/install" --system-recover "$recovery_target"
   exit
 fi
-render_cursor() {
-  cursor_source=${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/native-cursor.cfg
-  uv run --directory "$module" python -m midscroll_routing.cursor \
-    --template "$module/apps/gecko/native-cursor.cfg" --output "$cursor_source"
-}
+cursor_source=$module/apps/gecko/native-cursor.cfg
 if [[ $mode == --cursor-only ]]; then
-  render_cursor
   root_backup=$(cat /var/lib/dotfiles-mouse/last-recovery)
   [[ $root_backup =~ ^/var/lib/dotfiles-mouse/recovery\.[A-Za-z0-9]+$ ]] || exit 1
   pkexec /usr/bin/python3 -I "$module/src/midscroll_routing/installation.py" --root / native-cursor \
     --source "$cursor_source" --backup "$root_backup/native-cursor.json"
-  printf 'Native cursor configuration applied; reload the browser to activate it.\n'
+  printf 'Native scroll-state bridge applied; reload the browser to activate it.\n'
   exit
 fi
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/mouse-builds
@@ -223,7 +218,6 @@ if [[ $mode != --configs-only ]]; then
   fi
   cmake -S "$module/target-bridges" -B "$module/target-bridges/build/dev" -G Ninja "${cmake_args[@]}"
   cmake --build "$module/target-bridges/build/dev" --parallel 2
-  render_cursor
   if [[ $mode == --prepare ]]; then
     printf 'Prepared candidate: %s\nRecovery: %s\n' "$cache/candidate.json" "$cache/previous.json"
     exit 0

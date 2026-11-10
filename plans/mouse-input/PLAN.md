@@ -109,40 +109,29 @@ baseline is 1.15-1. Build a separately verified recovery package from that revis
 and preserve actual configuration/helper/unit state before any later authorized
 installation. Only isolated recovery rehearsals have run; no live installation or recovery.
 
-## Source closeout and next action
+## Earlier source closeout
 
-The approved source implementation, concrete installer/recovery and isolated
-verification are complete. Technical review through
-`3a5c3b62f9f655a0e2361305394ee33ae514319e` is approved with all eleven findings
-resolved. The same canonical Git-private work order owns final documentation
-closeout; resolve it through Engineering's `review-path` for run `mouse-native`.
-
-The actual public preparation command passes 80 tests, ruff, strict mypy, both
-bridge builds, real Arch package/import inspection and verified recovery. Bash
-checks pass. Both contained native compositor probes pass. See PROGRESS.md for
-current evidence and scope.
-
-No publication or live deployment has occurred. A later authorized deployment
-must verify complete helper/daemon/application composition and physical input on
-both desktops. Keep snapshot/IPC timing limits explicit and preserve the restored
-runtime, withdrawn experiment and unrelated work.
+The routing/installer implementation was approved through `3a5c3b6`; its eleven
+technical findings were resolved. Live installation was subsequently authorized
+and performed. That earlier source approval did not prove the requested browser
+cursor appearance. The canonical Git-private review work order remains the owner
+of later passes; resolve it with Engineering's `review-path` for `mouse-native`.
 
 ## Active visual acceptance
 
-The installed midscroll package is native-default; the router/overlay services and
-KDE target bridge are active. Root recovery is retained at
-`/var/lib/dotfiles-mouse/recovery.XLA6WgJK`. The user confirmed links/tabs and native
-scrolling work. Do not alter that working routing to change the indicator.
+The user confirmed native link/tab clicks and scrolling work. The visible cursor
+requirement remains open. Independent actual Wayland evidence reproduced the
+missing native-state signal and the failure of CSS image cursors under Firefox's
+popup guard. The existing global renderer successfully shows its actual themed
+up/down cursor over native autoscroll when supplied with active state.
 
-Visual assessment complete: KWin cursor/popup metadata cannot reliably identify
-native browser autoscroll; Chromium already emits its native directional panning
-cursor. Firefox's actual native `#autoscroller` popup and browsing-context state
-provide an authoritative UI boundary. A small trusted native AutoConfig observer
-changes only Firefox's pointer/popup painting, restores the normal cursor at stop,
-and leaves scrolling and click handlers unchanged. It applies by Gecko engine
-capability, without a browser-name list or profile/session rewrites.
+The selected repair adds generic presentation-only leases to the existing daemon
+socket and a Gecko native-lifecycle adapter. It reuses the existing compositor
+renderer; no browser cursor styles, image compiler or direction calculation remain.
+Physical input routing and native scroll engines retain their current ownership.
+The browser restores its fixed indicator when its lease cannot be maintained.
 
-The prototype in an isolated Firefox 159 profile opens links without activating
-its cursor, shows n-resize then s-resize while native scrolling advances, hides
-the fixed popup paint, and restores auto/opacity on native cancellation. Native
-AutoConfig deployment, startup verification and user visual acceptance remain.
+Next: complete actual candidate Wayland verification, independent frozen-source
+review, package/observer installation and live browser startup activation. The
+118-test gate and headless proxy checks pass; these do not replace actual pointer
+acceptance. See PROGRESS.md for the current deployment and evidence state.

@@ -1,49 +1,49 @@
-# Native autoscroll cursor
+# Native autoscroll state bridge
 
-`native-cursor.cfg` observes Gecko's actual browser-chrome autoscroll popup.
-It hides the popup's paint and applies the current theme's original
-up/down/left/right cursor images through a temporary user cursor stylesheet. Native cancellation restores
-the previous popup opacity and normal cursor stylesheet. It neither intercepts middle clicks
-nor replaces scrolling, link handling or tab handling.
+`native-cursor.cfg` observes Gecko's actual browser-chrome autoscroll lifecycle
+and reports a short-lived presentation lease to the existing midscroll state
+socket. Midscroll merges it with fallback scrolling and notifies the same KWin
+cursor renderer used by terminals. The browser adapter contains no cursor images,
+direction calculations or cursor styles. Native scrolling, link opening and tab
+closing remain owned by the browser.
 
-Installation uses Mozilla's native AutoConfig startup mechanism with a root-owned
-configuration and bootstrap under each discovered Gecko browser engine. Its
-unsandboxed mode permits browser-chrome UI access; the file is trusted local code,
-not web content. Existing unrelated AutoConfig is refused. Profiles, cookies,
-accounts and sessions are preserved. Changes activate at browser startup.
+After the daemon accepts a lease, the adapter makes the native fixed indicator
+transparent. It restores its prior opacity on cancellation, socket failure or an
+acknowledgement timeout. Acknowledgement establishes acceptance by the daemon;
+it does not attest to actual cursor rendering. The adapter runs on KDE, where the
+existing KWin renderer must be loaded. Other desktops retain the native indicator.
+An explicitly supplied `MIDSCROLL_CURSOR_STATE_SOCKET` supports isolated testing.
 
-The discovery requires the installed engine, application metadata and browser
-archive, without a browser-name list. Chromium/Electron retain their native
-panning cursors; the existing KWin effect continues handling generic fallback.
+The socket has separate, bounded presentation-only connections. These can report
+advisory visual state but cannot enter input routing or focus handlers. Leases
+expire after 300ms without renewal and are revoked on disconnect or inactive
+logind user state. Rendering is filtered by UID. As with the existing daemon,
+logind UID state does not isolate multiple graphical sessions of one account;
+this setup targets the workstation's single graphical session.
 
-Apply only the cursor configuration to an already installed runtime:
+Installation uses Mozilla's AutoConfig startup mechanism with root-owned files
+under each discovered Gecko runtime. Its unsandboxed mode permits trusted local
+browser-chrome code. Existing unrelated AutoConfig is refused. Configuration
+activates at browser startup; profiles and sessions are preserved.
 
 ```sh
 ./core/mouse/install --cursor-only
 ```
 
-The existing installation recovery directory receives `native-cursor.json` before
-changes. Configuration writes are atomic and a failed write restores the snapshot.
-Full mouse installation/recovery also composes this stage.
-
-Run a disposable real-browser check, with remote/system access enabled only for
-that test process and temporary profile:
+This requires the corresponding midscroll package update; installing only the
+observer against an old daemon leaves the native indicator intact. Full mouse
+installation composes both. The retained recovery directory records exact startup
+file snapshots in `native-cursor.json` before atomic writes.
 
 ```sh
 uv run --directory core/mouse python tests/gecko_cursor_acceptance.py
 uv run --directory core/mouse python tests/gecko_cursor_acceptance.py --installed
 ```
 
-The check verifies native link opening, native tab closing, native scroll progress,
-popup transparency, direction changes and trusted Escape cleanup. Its test profile
-uses main-thread scrolling for deterministic headless execution. Physical appearance
-and the normal application's APZ path still require user acceptance.
+The disposable-profile check verifies native link/tab clicks, native scrolling,
+presentation messages, popup opacity, cancellation and lost-ack recovery. Its
+headless proxy does not prove rendered cursor appearance. Actual cursor acceptance
+requires the separate contained Wayland experiment with the real KWin effect.
+The observer was qualified with Firefox 159.0.1. Requalify after browser UI changes.
 
-Native interfaces were verified with Firefox 159.0.1. Missing/changed native state
-leaves the ordinary browser indicator intact. Requalify the observer after engine
-UI changes. The script uses event observation, not browser executable/prototype
-patching.
-
-`midscroll_routing.cursor` reads the existing Xcursor images and hotspots, renders
-inline PNGs, and writes the runtime configuration outside Git. It preserves the
-original glyphs and does not modify the cursor theme.
+Chromium/Electron currently retain their native scrolling and cursor presentation.

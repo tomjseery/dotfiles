@@ -8,6 +8,51 @@ from typing import Any, cast
 import pytest
 
 from midscroll_routing import Gesture, session
+from midscroll_routing.presentation import ACCEPTED
+
+
+def test_native_presentation_drives_shared_renderer_without_input_authority(
+    engine: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def scenario() -> None:
+        monkeypatch.setattr(engine, "_uid_has_seat", lambda _: True)
+        monkeypatch.setattr(engine, "_uid_is_active", lambda _: True)
+        monkeypatch.setattr(engine, "_peer_is_overlay", lambda _: True)
+        notifier = engine.Notifier(engine.FocusFilter())
+        path = str(tmp_path / "state.sock")
+        server = await asyncio.start_unix_server(notifier._client, path=path)
+        async with server:
+            viewer, viewer_writer = await asyncio.open_unix_connection(path)
+            assert await viewer.readline() == b"0\n"
+            monkeypatch.setattr(engine, "_peer_is_overlay", lambda _: False)
+            native, native_writer = await asyncio.open_unix_connection(path)
+            native_writer.write(b'presentation {"version":1,"active":true}\n')
+            await native_writer.drain()
+            assert await native.readline() == ACCEPTED
+            # The physical fallback remains inactive. Its regular ticker call
+            # must preserve native presentation instead of overwriting it.
+            notifier.set(False)
+            assert await viewer.readline() == b"1\n"
+            assert notifier.msg == b"0\n"
+            assert not notifier.routing.routers
+            native_writer.write(b'routing {"version":1,"kind":"hello"}\n')
+            await native_writer.drain()
+            assert await native.readline() == b""
+            assert not notifier.routing.routers
+            notifier.set(False)
+            assert await viewer.readline() == b"0\n"
+            native_writer.close()
+            viewer_writer.close()
+            await native_writer.wait_closed()
+            await viewer_writer.wait_closed()
+
+            async def disconnected() -> None:
+                while notifier.writers or notifier.presentation.peers:
+                    await asyncio.sleep(0)
+
+            await asyncio.wait_for(disconnected(), 1)
+
+    asyncio.run(scenario())
 
 
 def test_real_ipc_with_passive_viewer_and_router(

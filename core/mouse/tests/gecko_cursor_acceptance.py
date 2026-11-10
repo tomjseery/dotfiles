@@ -1,23 +1,22 @@
 #!/usr/bin/env python3
-"""Standalone native Firefox cursor acceptance, outside pytest auto discovery.
+"""Standalone native Firefox lifecycle/wire acceptance, outside pytest discovery.
 
 Every run uses a temporary profile and an owned headless Firefox process. The
 profile alone disables APZ autoscroll for deterministic main-thread scrolling.
 --source injects the candidate chrome script; --installed instead requires its
 startup marker before any injection. System/Marionette access is enabled only
-for the test process. No existing browser or profile is used.
+for the test process. No existing browser or profile is used. An owned Unix
+socket proxy checks the presentation contract; this does not verify rendering.
 """
 
 import argparse
-import base64
-import hashlib
 import json
 import os
-import re
 import shutil
 import socket
 import subprocess
 import tempfile
+import threading
 import time
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
@@ -159,7 +158,7 @@ class Marionette:
 
 
 @contextmanager
-def browser_session(firefox: str) -> Iterator[Marionette]:
+def browser_session(firefox: str, presentation_socket: Path) -> Iterator[Marionette]:
     with tempfile.TemporaryDirectory(prefix="gecko-cursor-acceptance-") as temporary:
         profile = Path(temporary)
         with socket.socket() as reservation:
@@ -186,7 +185,11 @@ def browser_session(firefox: str) -> Iterator[Marionette]:
                 ],
                 stdout=log,
                 stderr=log,
-                env={**os.environ, "MOZ_REMOTE_ALLOW_SYSTEM_ACCESS": "1"},
+                env={
+                    **os.environ,
+                    "MOZ_REMOTE_ALLOW_SYSTEM_ACCESS": "1",
+                    "MIDSCROLL_CURSOR_STATE_SOCKET": str(presentation_socket),
+                },
             )
             try:
                 deadline = time.monotonic() + 15
@@ -227,37 +230,105 @@ def browser_session(firefox: str) -> Iterator[Marionette]:
                         process.wait()
 
 
-def candidate_source(source: Path) -> str:
-    template = source.read_text(encoding="utf-8")
-    if "/* DOTFILES_CURSOR_IMAGES */ {}" in template:
-        from midscroll_routing.cursor import compile_config
-
-        return compile_config(source).decode("utf-8")
-    return template
-
-
 def css_cursor(client: Marionette) -> str:
     value = client.script("return getComputedStyle(document.documentElement).cursor;")
-    require(isinstance(value, str), "computed CSS cursor was not a string")
     if not isinstance(value, str):
-        raise AcceptanceError("invalid computed cursor")
+        raise AcceptanceError("computed CSS cursor was not a string")
     return value
 
 
-def png_cursor(cursor: str) -> bytes:
-    match = re.search(r"data:image/png;base64,([A-Za-z0-9+/=]+)", cursor)
-    if match is None:
-        raise AcceptanceError(f"computed cursor does not contain a PNG: {cursor}")
-    image = base64.b64decode(match[1], validate=True)
-    require(image.startswith(b"\x89PNG\r\n\x1a\n"), "cursor image is not a PNG")
-    return image
+class PresentationProxy:
+    """Owned protocol peer, not a renderer or substitute for root acceptance."""
+
+    def __init__(self, path: Path) -> None:
+        self.server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.server.bind(str(path))
+        self.server.listen(1)
+        self.server.settimeout(0.1)
+        self.acknowledge = threading.Event()
+        self.finish = threading.Event()
+        self.received: list[dict[str, Json]] = []
+        self.closed = 0
+        self.failure: str | None = None
+        self.thread = threading.Thread(target=self.serve, daemon=True)
+        self.thread.start()
+
+    def serve(self) -> None:
+        while not self.finish.is_set():
+            try:
+                connection, _ = self.server.accept()
+            except TimeoutError:
+                continue
+            with connection:
+                connection.settimeout(0.1)
+                pending = b""
+                while not self.finish.is_set():
+                    try:
+                        data = connection.recv(4096)
+                    except TimeoutError:
+                        continue
+                    except ConnectionResetError:
+                        break
+                    if not data:
+                        break
+                    pending += data
+                    if len(pending) > 4096:
+                        self.failure = "oversized adapter frame"
+                        break
+                    while b"\n" in pending:
+                        line, pending = pending.split(b"\n", 1)
+                        if not line.startswith(b"presentation "):
+                            self.failure = "unexpected adapter namespace"
+                            return
+                        try:
+                            report = as_object(cast(Json, json.loads(line[13:])))
+                        except (AcceptanceError, ValueError) as error:
+                            self.failure = str(error)
+                            return
+                        if (
+                            set(report) != {"version", "active"}
+                            or report["version"] != 1
+                            or type(report["active"]) is not bool
+                        ):
+                            self.failure = "invalid adapter presentation report"
+                            return
+                        self.received.append(report)
+                        if report["active"] is True and self.acknowledge.is_set():
+                            try:
+                                connection.sendall(
+                                    b'presentation {"version":1,"accepted":true}\n'
+                                )
+                            except BrokenPipeError, ConnectionResetError:
+                                break
+                self.closed += 1
+
+    def wait_reports(self, minimum: int) -> None:
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            require(self.failure is None, f"protocol proxy failed: {self.failure}")
+            if len(self.received) >= minimum:
+                return
+            time.sleep(0.01)
+        raise AcceptanceError("adapter did not report actual native lifecycle")
+
+    def wait_closed(self, minimum: int) -> None:
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            if self.closed >= minimum:
+                return
+            time.sleep(0.01)
+        raise AcceptanceError("adapter did not close its presentation lease")
+
+    def close(self) -> None:
+        self.finish.set()
+        self.thread.join(timeout=2)
+        self.server.close()
+        require(not self.thread.is_alive(), "presentation proxy did not stop")
 
 
-def cursor_evidence(cursor: str) -> dict[str, Json]:
-    return {"png": True, "sha256": hashlib.sha256(png_cursor(cursor)).hexdigest()}
-
-
-def acceptance(client: Marionette, source: Path | None) -> dict[str, object]:
+def acceptance(
+    client: Marionette, source: Path | None, proxy: PresentationProxy
+) -> dict[str, object]:
     client.context("chrome")
     result: dict[str, object] = {"mode": "source" if source else "installed"}
     result["version"] = client.script("return Services.appinfo.version;")
@@ -270,7 +341,7 @@ def acceptance(client: Marionette, source: Path | None) -> dict[str, object]:
             "startup already installed an observer; use --installed",
         )
         require(
-            client.script(candidate_source(source) + "\n" + MARKER) is True,
+            client.script(source.read_text(encoding="utf-8") + "\n" + MARKER) is True,
             "candidate source did not attach its observer",
         )
     result["startup_marker"] = startup_marker
@@ -321,6 +392,7 @@ return {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2)};"""
     client.context("content")
     require(css_cursor(client) == baseline_content, "link click changed content cursor")
     client.context("chrome")
+    require(not proxy.received, "middle-click link reported autoscroll")
     result["link_tabs"] = 2
     # Exercise real middle-click tab close, rather than calling removeTab().
     tab = as_object(
@@ -336,55 +408,33 @@ return {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2)};"""
         css_cursor(client) == baseline_chrome,
         "middle-click tab close activated cursor presentation",
     )
+    require(not proxy.received, "middle-click tab close reported autoscroll")
     result["middle_click_tab_close"] = True
     client.context("content")
     require(css_cursor(client) == baseline_content, "tab close changed content cursor")
     client.pointer(300, 200, 1)
     client.context("chrome")
+    proxy.wait_reports(1)
+    unaccepted = as_object(client.script(STATE))
+    require(
+        unaccepted["state"] == "open"
+        and unaccepted["active"] is True
+        and unaccepted["opacity"] == "",
+        "circle hidden before acceptance",
+    )
+    result["before_acceptance"] = unaccepted
+    proxy.acknowledge.set()
     client.wait(
-        """return gBrowser.selectedBrowser._autoScrollPopup?.state === 'open'
-               && getComputedStyle(document.documentElement).cursor
-                  .includes('data:image/png;base64,');""",
-        "native popup and initial arrow",
+        "return gBrowser.selectedBrowser._autoScrollPopup?.style.opacity === '0';",
+        "daemon acceptance before hiding circle",
     )
     start = as_object(client.script(STATE))
     require(
-        start["active"] is True and start["opacity"] == "0",
-        f"native popup was not active and transparent: {start}",
+        start["state"] == "open" and start["active"] is True,
+        "native autoscroll was not retained",
     )
-    up_chrome = css_cursor(client)
-    up_image = png_cursor(up_chrome)
-    client.context("content")
-    client.wait(
-        "return getComputedStyle(document.documentElement).cursor"
-        ".includes('data:image/png;base64,');",
-        "remote content PNG cursor",
-    )
-    up_content = css_cursor(client)
-    require(
-        png_cursor(up_content) == up_image, "remote content did not receive up image"
-    )
-    start["cursor"] = cursor_evidence(up_chrome)
-    start["content_cursor"] = cursor_evidence(up_content)
+    require(css_cursor(client) == baseline_chrome, "adapter styled a chrome cursor")
     result["start"] = start
-    client.context("chrome")
-    client.script(
-        """window.dispatchEvent(new MouseEvent('mousemove', {
-  screenX:gBrowser.selectedBrowser._startX,
-  screenY:gBrowser.selectedBrowser._startY+200, bubbles:true}));"""
-    )
-    client.wait(
-        "return getComputedStyle(document.documentElement).cursor !== "
-        + json.dumps(up_chrome)
-        + ";",
-        "different directional PNG",
-    )
-    down_chrome = css_cursor(client)
-    down_image = png_cursor(down_chrome)
-    require(down_image != up_image, "up/down cursors used identical PNG pixels")
-    move = as_object(client.script(STATE))
-    move["cursor"] = cursor_evidence(down_chrome)
-    result["move"] = move
     origin = as_object(
         client.script(
             """return {x:gBrowser.selectedBrowser._startX,
@@ -392,15 +442,7 @@ return {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2)};"""
         )
     )
     client.context("content")
-    client.wait(
-        "return getComputedStyle(document.documentElement).cursor !== "
-        + json.dumps(up_content)
-        + ";",
-        "remote content directional PNG",
-    )
-    down_content = css_cursor(client)
-    require(png_cursor(down_content) == down_image, "remote content down image differs")
-    move["content_cursor"] = cursor_evidence(down_content)
+    require(css_cursor(client) == baseline_content, "adapter styled a content cursor")
     # Feed Firefox's own native main-thread autoscroller, never scrollTo().
     client.script(
         f"""document.dispatchEvent(new MouseEvent('mousemove',{{
@@ -438,6 +480,37 @@ return {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2)};"""
     )
     stop["content_cursor"] = css_cursor(client)
     result["stop"] = stop
+    proxy.wait_closed(1)
+    require(
+        any(report["active"] is False for report in proxy.received),
+        "native cancellation did not report stop",
+    )
+    # Prove loss of acceptance restores the native circle without stopping Gecko.
+    before = len(proxy.received)
+    client.pointer(300, 200, 1)
+    client.context("chrome")
+    client.wait(
+        "return gBrowser.selectedBrowser._autoScrollPopup?.style.opacity === '0';",
+        "second accepted native autoscroll",
+    )
+    proxy.wait_reports(before + 1)
+    proxy.acknowledge.clear()
+    client.wait(
+        """return gBrowser.selectedBrowser._autoScrollPopup?.style.opacity === ''
+               && !!gBrowser.selectedBrowser._autoScrollBrowsingContext;""",
+        "ack timeout restoring the active native circle",
+    )
+    result["timeout"] = client.script(STATE)
+    proxy.wait_closed(2)
+    result["closed_presentation_leases"] = proxy.closed
+    client.escape()
+    client.wait(
+        "return gBrowser.selectedBrowser._autoScrollPopup?.state === 'closed';",
+        "native cancellation after presentation timeout",
+    )
+    require(proxy.failure is None, f"protocol proxy failed: {proxy.failure}")
+    result["presentation_reports"] = proxy.received.copy()
+    result["renderer_verified"] = False
     result["passed"] = True
     return result
 
@@ -455,8 +528,16 @@ def main() -> None:
     if args.firefox is None:
         parser.error("Firefox is unavailable; pass --firefox PATH")
     try:
-        with browser_session(args.firefox) as client:
-            result = acceptance(client, None if args.installed else args.source)
+        with tempfile.TemporaryDirectory(prefix="gecko-presentation-") as directory:
+            path = Path(directory) / "state.sock"
+            proxy = PresentationProxy(path)
+            try:
+                with browser_session(args.firefox, path) as client:
+                    result = acceptance(
+                        client, None if args.installed else args.source, proxy
+                    )
+            finally:
+                proxy.close()
     except AcceptanceError as error:
         if args.json:
             print(

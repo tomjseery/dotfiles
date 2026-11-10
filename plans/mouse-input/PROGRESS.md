@@ -11,36 +11,34 @@ PR: not opened; publication remains held. Live installation authorized 2026-11-1
 
 The requested visible global cursor behaviour is NOT complete. The user reports
 terminal fallback shows the desired cursor; native Firefox scrolling does not.
-Implementation changes are frozen for an independent read-only root-cause audit.
+The independent audit and a contained headful Wayland experiment reproduced
+both failures: native scrolling never activates the shared renderer, and Firefox's
+popup guard prevents the attempted CSS PNG from becoming the actual cursor.
+Private state injection into the existing renderer produced actual themed up/down
+cursor images over the still-active native browser popup, then restored the pointer.
+Evidence: `~/.cache/dotfiles/gecko-wayland-cursor.v0fl6vrs/result.json`.
 
-Native-default midscroll and its session services are installed and running.
-Normal native link/tab middle-click and scrolling were confirmed by the user.
-The attempted AutoConfig/CSS workaround was installed, then its two startup files
-were restored/removed using the retained native-cursor.json recovery. A running
-browser may retain already-loaded code until restart. Do not reapply that workaround.
+The repair now connects native autoscroll lifecycle to the existing renderer through
+bounded presentation-only leases on the existing state socket. These peers cannot
+enter routing or focus handlers. They have independent quotas and expire after
+300ms, on disconnect or inactive logind UID state. Output is filtered by UID;
+separate graphical sessions of the same UID are not isolated by this daemon.
+The observer has no cursor images/styles or direction calculations. It hides the
+fixed marker after daemon acceptance and restores it on cancellation or failure.
+Acceptance is not a renderer acknowledgement; actual rendered verification is
+required separately. Existing renderer code and physical input routing are unchanged.
 
-The 106-test gate and headless real-browser checks established input semantics,
-configuration handling and computed CSS. They did NOT establish actual compositor
-cursor rendering. Earlier statements treating those checks as visible cursor
-acceptance were incorrect.
+The obsolete PNG compiler was removed. The full 118-test gate, Ruff, strict mypy,
+Bash syntax and ShellCheck pass. A package was built and archive/import inspected.
+An isolated Firefox proxy check preserves link/tab clicks, native scroll progress,
+Escape cleanup and lost-ack restoration. Full candidate Wayland verification,
+independent source review and live installation remain pending.
 
-Confirmed shared-renderer break: installed midscroll broadcasts its fallback
-State.scrolling only. Native browser input is passed through, so it never sets
-that flag. The loaded KWin effect reads only that flag; it has no native browser
-scroll-state input. Its installed library hash matches the cached build.
-
-Independent fresh review completed. Exact Firefox 159.0.1 source opens a non-tooltip
-XUL autoscroll panel; the popup manager disables custom image cursors by default
-and GTK then uses the ordinary cursor. Making that panel transparent leaves the
-guard active. The source default is verified and installed autoscroll JavaScript
-matches the release source byte-for-byte; effective LIVE preference/widget state
-has not been measured. Do not present that live value as observed.
-
-This explains why computed PNG CSS and headless scrolling tests could pass without
-proving a visible cursor. Preserve the browser security preference. The next
-measurement is an isolated actual Wayland run that reads the effective preference
-and observes the emitted/rendered cursor during native autoscroll. No further
-implementation or live state changes were made in the independent audit.
+Native-default midscroll and its session services are installed and running at the
+previous package. Native link/tab clicks and scrolling were confirmed by the user.
+The old browser styling startup files were removed; the candidate state observer
+has NOT yet been installed. A running browser can retain previously loaded code.
+The 106-test/headless CSS results were never proof of actual pointer rendering.
 
 ## Reviews
 
@@ -57,11 +55,10 @@ from the onboarding owner are preserved outside the mouse commits.
 
 ## Next action and limits
 
-Complete the independent causal report with exact source evidence and separate
-observed facts from unverified hypotheses. Choose the next discriminating rendered
-cursor measurement before any further implementation. The target remains one
-shared global renderer with normal native click behaviour; browser-specific cursor
-styling has been rejected by the user.
+Run the full candidate through isolated actual Wayland cursor acceptance, review
+the frozen source, then install the verified package and native lifecycle bridge.
+Preserve the working link/tab routing. Browser startup activation and actual live
+acceptance remain required before calling the visual issue fixed.
 
 Root recovery: `/var/lib/dotfiles-mouse/recovery.XLA6WgJK`. Preserve unrelated work,
 sessions and the withdrawn experiment. Publication is not authorized. Do not log
