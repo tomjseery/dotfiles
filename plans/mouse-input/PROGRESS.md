@@ -5,17 +5,20 @@ Plan: [PLAN.md](PLAN.md)
 Owner: this conversation; implementation authorized 2026-11-09.
 Checkout: `/home/tommy/projects/dotfiles/.worktrees/Fix-MouseGestureOwnership`.
 Branch: `Fix/MouseGestureOwnership`; base `5625f551c40a1c86eae4a58a137d045fd460ae2c`.
-PR: not opened; publication and live deployment remain held.
+PR: not opened; publication remains held. Live installation authorized 2026-11-10.
 
 ## Current state
 
-Authorized source implementation and isolated verification are complete.
+The initial source implementation and isolated verification are complete.
+Live deployment has now occurred; visual cursor acceptance is active.
 Technical source review is approved through `3a5c3b62f9f655a0e2361305394ee33ae514319e`.
 The branch contains pinned native-default routing, typed session/gesture handling,
 actual compositor target bridges, native application defaults, thin public
 installer entry points and retained package/file recovery. Obsolete pass-through
 manifests and the installed-executable overlay wrapper are removed from source.
-Installed copies and the restored runtime remain untouched.
+The native-default package and services are now live, with the KDE target bridge
+loaded through its supported API. The user confirmed normal clicks and native
+scrolling work, then requested restoring the moving arrow cursor.
 
 The actual public `core/mouse/install --prepare` completes with 80 tests, ruff,
 strict mypy, both bridge builds, real Arch package/import inspection and a recovery
@@ -45,16 +48,13 @@ from the onboarding owner are preserved outside the mouse commits.
 
 ## Next action and limits
 
-The authorized source acceptance condition is met. Publication, live installation,
-desktop/service activation and physical acceptance remain held under the plan's
-recorded scope. No deployment is implied by a source commit or review approval.
+Complete the requested moving directional cursor without changing working native
+input routing. The Gecko native UI observer prototype passes actual browser
+start/move/stop and link checks in a temporary profile. Finish transactional
+configuration, startup verification and user visual acceptance; do not call the
+whole feature done before that acceptance.
 
-A later authorized deployment must verify complete helper/daemon/application
-composition and physical KDE/Hyprland behaviour: native tab closing, link opening,
-native autoscroll, fallback start/stop, eligibility transitions and multiple
-input devices. The bridge snapshot and IPC timing limits remain explicit in the
-owning README. Source tests do not establish these deployment claims.
-
-Preserve restored services, the withdrawn experiment, unrelated user changes and
-the separate standards-refactor owner. Retain verified packages and recovery
-artifacts until deployment acceptance.
+The root installation's retained recovery is
+`/var/lib/dotfiles-mouse/recovery.XLA6WgJK`. Preserve unrelated user changes,
+sessions, the withdrawn experiment and separate standards work. Publication is
+not authorized. Do not log out, reboot or restart the desktop.

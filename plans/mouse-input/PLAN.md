@@ -3,9 +3,13 @@
 ## Authority and ownership
 
 Tommy approved the fresh architecture assessment and implementation on 2026-11-09
-("ok sounds good lets do it then"). This checkout owns replacement source and
-isolated verification. Do not publish or deploy, restart services/compositors,
-change live input or user profiles. The restored runtime remains the baseline.
+("ok sounds good lets do it then"). The source-only checkpoint is superseded by Tommy's 2026-11-10 instruction to
+make the live feature work. Live installation is now authorized and applied;
+publication remains held. Do not log out, reboot or restart the desktop. Preserve
+unrelated preferences and sessions. On 2026-11-10 the user confirmed normal middle
+clicks and native autoscroll work together, then requested the prior clean moving
+arrow cursor instead of the browser's fixed circle. That visual requirement is
+active and has not yet been accepted.
 The withdrawn experiment and its uncommitted records remain untouched at
 `/home/tommy/projects/dotfiles.worktrees/Fix-GenericMiddleClick`.
 
@@ -122,3 +126,23 @@ No publication or live deployment has occurred. A later authorized deployment
 must verify complete helper/daemon/application composition and physical input on
 both desktops. Keep snapshot/IPC timing limits explicit and preserve the restored
 runtime, withdrawn experiment and unrelated work.
+
+## Active visual acceptance
+
+The installed midscroll package is native-default; the router/overlay services and
+KDE target bridge are active. Root recovery is retained at
+`/var/lib/dotfiles-mouse/recovery.XLA6WgJK`. The user confirmed links/tabs and native
+scrolling work. Do not alter that working routing to change the indicator.
+
+Visual assessment complete: KWin cursor/popup metadata cannot reliably identify
+native browser autoscroll; Chromium already emits its native directional panning
+cursor. Firefox's actual native `#autoscroller` popup and browsing-context state
+provide an authoritative UI boundary. A small trusted native AutoConfig observer
+changes only Firefox's pointer/popup painting, restores the normal cursor at stop,
+and leaves scrolling and click handlers unchanged. It applies by Gecko engine
+capability, without a browser-name list or profile/session rewrites.
+
+The prototype in an isolated Firefox 159 profile opens links without activating
+its cursor, shows n-resize then s-resize while native scrolling advances, hides
+the fixed popup paint, and restores auto/opacity on native cancellation. Native
+AutoConfig deployment, startup verification and user visual acceptance remain.

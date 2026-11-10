@@ -21,7 +21,12 @@ def module_path(
     module = tmp_path_factory.mktemp("relocated-checkout") / "core/mouse"
     module.mkdir(parents=True)
     shutil.copy2(MODULE / "install", module / "install")
-    for relative in ("src/midscroll_routing", "system", "package/usr/share"):
+    for relative in (
+        "src/midscroll_routing",
+        "system",
+        "package/usr/share",
+        "apps/gecko",
+    ):
         shutil.copytree(MODULE / relative, module / relative)
     return module
 
