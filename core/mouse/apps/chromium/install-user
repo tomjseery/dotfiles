@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+module=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+case ${1-} in
+'' | --configs-only | --dry-run) ;;
+*)
+  printf 'usage: %s [--configs-only]\n' "$0" >&2
+  exit 2
+  ;;
+esac
+[[ $# -le 1 ]] || exit 2
+target=${XDG_CONFIG_HOME:-$HOME/.config}/middleclick-autoscroll/config
+[[ ! -L $target ]] || {
+  printf 'Refusing configuration symlink: %s\n' "$target" >&2
+  exit 1
+}
+if [[ -e $target ]] && ! cmp -s "$module/config" "$target"; then
+  printf 'Review unrelated or customized native-app configuration: %s\n' "$target" >&2
+  exit 1
+fi
+[[ ${1-} != --dry-run ]] || exit 0
+if ! cmp -s "$module/config" "$target"; then
+  install -D -m 0644 "$module/config" "$target"
+fi
+if [[ ${1-} != --configs-only ]]; then
+  middleclick-autoscroll apply --quiet
+fi

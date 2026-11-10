@@ -197,32 +197,18 @@ instead of depending on the desktop keyring (KWallet) — a locked or
 misconfigured wallet must never be able to hang the browser.
 
 `core/packages/aur-packages.txt` lists core AUR packages (it is not a Stow
-package itself). Application integrations can also declare required AUR
-packages in their own `core/app-configs/<name>/aur-packages` manifest.
+package itself). The mouse module declares its native-application helper in
+`core/mouse/apps/chromium/aur-packages`.
 
 ## Mouse and middle-click autoscroll
 
-The installer in step 6 routes middle clicks by the application under the
-pointer. Chrome and other supported Chromium/Electron apps keep their native
-autoscroll and link-click behavior. Thunderbird, terminals, and other apps use
-midscroll, with a directional cursor supplied by KWin on Plasma Wayland.
+Middle clicks remain native by default. Explicit fallback applications use the
+pinned midscroll package only when a native compositor bridge confirms the actual
+recipient. Unknown or stale targets remain native.
 
-Application integrations live in `core/app-configs/`. When adding a native-capable
-app, declare its window class in that module's `midscroll-pass-through` file;
-midscroll uses window classes, while `middleclick-autoscroll` discovers desktop
-apps by a different identifier. Apps without a declaration use the fallback.
-
-`install-mouse-config` is safe to rerun. It also removes conflicting old
-middle-button mappings, and installs a pacman hook to rebuild the KWin cursor
-effect after KWin updates. Effect updates take effect at the next Plasma login;
-the installer never unloads the effect from a running session. Restart affected
-applications after applying their native-autoscroll settings.
-
-If the cursor effect misbehaves, run
-`core/mouse/kwin-scroll-cursor/install --disable` and log out and back in. Scrolling
-will continue with midscroll's fallback indicator. After repair, re-enable
-`midscrollcursorEnabled` in `core/settings/kconfig/kwinrc`, reapply core config
-and log in again.
+See [mouse setup, checks and recovery](core/mouse/README.md) for the owning
+configuration, native application defaults and installation commands. The router
+and the optional drawing effect are independent.
 
 ## Things deliberately kept out of this repo
 
