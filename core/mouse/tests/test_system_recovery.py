@@ -12,9 +12,23 @@ import pytest
 MODULE = Path(__file__).resolve().parents[1]
 
 
+@pytest.fixture(params=[False, True], ids=["working-checkout", "temporary-checkout"])
+def module_path(
+    request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory
+) -> Path:
+    if not request.param:
+        return MODULE
+    module = tmp_path_factory.mktemp("relocated-checkout") / "core/mouse"
+    module.mkdir(parents=True)
+    shutil.copy2(MODULE / "install", module / "install")
+    for relative in ("src/midscroll_routing", "system", "package/usr/share"):
+        shutil.copytree(MODULE / relative, module / relative)
+    return module
+
+
 @pytest.mark.parametrize("fail_restart", [True, False])
 def test_system_failure_or_manual_recovery_restores_state(
-    tmp_path: Path, fail_restart: bool
+    tmp_path: Path, fail_restart: bool, module_path: Path
 ) -> None:
     bwrap = shutil.which("bwrap")
     if bwrap is None:
@@ -32,10 +46,11 @@ def test_system_failure_or_manual_recovery_restores_state(
         if entry.name != "site-packages":
             (python / entry.name).symlink_to(Path("/opt/lib/python3.14") / entry.name)
     shutil.copytree(
-        MODULE / "src/midscroll_routing", python / "site-packages/midscroll_routing"
+        module_path / "src/midscroll_routing",
+        python / "site-packages/midscroll_routing",
     )
     share = tmp_path / "share"
-    shutil.copytree(MODULE / "package/usr/share", share)
+    shutil.copytree(module_path / "package/usr/share", share)
     etc = tmp_path / "etc"
     etc.mkdir()
     prior = b"DEADZONE_PX = 42\nNATIVE_DEFAULT = false\nFALLBACK_APPS = original\n"
@@ -109,6 +124,9 @@ def test_system_failure_or_manual_recovery_restores_state(
             "--bind",
             str(tmp_path),
             str(tmp_path),
+            "--ro-bind",
+            str(module_path),
+            str(module_path),
             "--dev",
             "/dev",
             "--proc",
@@ -117,7 +135,7 @@ def test_system_failure_or_manual_recovery_restores_state(
             "PATH",
             f"{commands}:/usr/bin",
             "--",
-            str(MODULE / "install"),
+            str(module_path / "install"),
             "--system",
             str(manifest),
             str(manifest),
@@ -138,7 +156,7 @@ def test_system_failure_or_manual_recovery_restores_state(
         assert "DEADZONE_PX = 42" in (etc / "midscroll.conf").read_text()
         backup = (state / "lib/dotfiles-mouse/last-recovery").read_text().strip()
         args = list(result.args)
-        args[args.index("--system") :] = ["--recover", backup]
+        args[args.index("--system") :] = ["--system-recover", backup]
         recovered = subprocess.run(args, text=True, capture_output=True, check=False)
         assert recovered.returncode == 0, recovered.stderr
     assert (etc / "midscroll.conf").read_bytes() == prior
