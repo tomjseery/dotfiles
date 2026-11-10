@@ -1,0 +1,276 @@
+#!/usr/bin/env bash
+# Arch Linux, Bash 5+. Preparation never changes packages or services.
+set -euo pipefail
+module=$(cd -- "$(dirname -- "$(readlink -f -- "${BASH_SOURCE[0]}")")" && pwd)
+repo_root=$(cd -- "$module/../.." && pwd)
+
+root_files=(
+  etc/midscroll.conf
+  etc/systemd/system/midscroll.service.d/native-default.conf
+  usr/lib/qt6/plugins/kwin/effects/plugins/mousetarget.so
+  usr/lib/hyprland/plugins/mouse_target_hyprland.so
+  var/lib/dotfiles-mouse/current-package.pkg.tar.zst
+)
+
+recover_system() {
+  local backup=$1
+  [[ $EUID -eq 0 && $backup =~ ^/var/lib/dotfiles-mouse/recovery\.[A-Za-z0-9]+$ && ! -L $backup ]] || return 2
+  [[ $(stat -c %u -- "$backup") == 0 && $(stat -c %a -- "$backup") == 700 ]] || return 2
+  [[ -f $backup/previous.pkg.tar.zst && -f $backup/files.json && -f $backup/restore-files.py ]] || return 2
+  # Recovery is self-contained even when pacman removed the new Python package.
+  if [[ -f $backup/native-apps.json ]]; then
+    /usr/bin/python3 -I "$backup/restore-files.py" --root / restore "$backup/native-apps.json" || return
+  fi
+  pacman -U --noconfirm "$backup/previous.pkg.tar.zst" || return
+  /usr/bin/python3 -I "$backup/restore-files.py" --root / restore "$backup/files.json" || return
+  systemctl daemon-reload || return
+  if [[ $(cat "$backup/active") == active ]]; then
+    systemctl restart midscroll.service || return
+  else
+    systemctl stop midscroll.service || return
+  fi
+  if [[ $(cat "$backup/enabled") != enabled ]]; then
+    systemctl disable midscroll.service || return
+  fi
+}
+
+install_system() {
+  [[ $EUID -eq 0 && $# -eq 3 ]] || return 2
+  local candidate_manifest=$1 previous_manifest=$2 bridge_dir=$3
+  local candidate previous expected backup source target temporary='' enabled_state
+  enabled_state=$(systemctl is-enabled midscroll.service 2>/dev/null || true)
+  case $enabled_state in enabled | disabled | static) ;; *)
+    printf 'Unsupported midscroll service state: %s\n' "$enabled_state" >&2
+    return 1
+    ;;
+  esac
+  candidate=$(jq -er '.package | strings' "$candidate_manifest")
+  previous=$(jq -er '.package | strings' "$previous_manifest")
+  expected=$(jq -er '.sha256 | strings' "$candidate_manifest")
+  [[ $(sha256sum -- "$candidate" | cut -d ' ' -f1) == "$expected" ]] || return 1
+  expected=$(jq -er '.sha256 | strings' "$previous_manifest")
+  [[ $(sha256sum -- "$previous" | cut -d ' ' -f1) == "$expected" ]] || return 1
+  [[ $(pacman -Qp "$previous") == "$(pacman -Q midscroll)" ]] || return 1
+  [[ -f $bridge_dir/mousetarget.so && -f $bridge_dir/mouse_target_hyprland.so ]] || return 1
+  /usr/bin/python3 -I "$module/src/midscroll_routing/installation.py" --root / native-defaults --backup /var/lib/dotfiles-mouse/preflight-unused.json --dry-run
+  install -d -m 0755 /var/lib/dotfiles-mouse
+  backup=$(mktemp -d /var/lib/dotfiles-mouse/recovery.XXXXXXXX)
+  install -m 0644 "$previous" "$backup/previous.pkg.tar.zst"
+  install -m 0644 "$candidate" "$backup/candidate.pkg.tar.zst"
+  install -m 0600 "$module/src/midscroll_routing/installation.py" "$backup/restore-files.py"
+  /usr/bin/python3 -I "$backup/restore-files.py" --root / snapshot "$backup/files.json" "${root_files[@]}"
+  if systemctl is-active --quiet midscroll.service; then printf 'active\n'; else printf 'inactive\n'; fi >"$backup/active"
+  if systemctl is-enabled --quiet midscroll.service; then printf 'enabled\n'; else printf 'disabled\n'; fi >"$backup/enabled"
+  if [[ -f /etc/midscroll.conf ]]; then
+    install -m 0600 /etc/midscroll.conf "$backup/previous.conf"
+  fi
+  # shellcheck disable=SC2329 # Invoked indirectly by the ERR/INT/TERM traps.
+  rollback_system() {
+    local status=$1
+    trap - ERR INT TERM
+    printf 'Mouse installation failed; restoring %s\n' "$backup" >&2
+    [[ -z $temporary ]] || rm -f -- "$temporary"
+    if ! recover_system "$backup"; then
+      printf 'Automatic recovery failed. Retained recovery: %s\n' "$backup" >&2
+    fi
+    exit "$status"
+  }
+  trap 'rollback_system "$?"' ERR
+  trap 'rollback_system 130' INT
+  trap 'rollback_system 143' TERM
+  pacman -U --noconfirm "$backup/candidate.pkg.tar.zst"
+  local prior=()
+  [[ ! -f $backup/previous.conf ]] || prior=(--previous "$backup/previous.conf")
+  /usr/bin/python3 -I -m midscroll_routing.installation --root / configure-system "${prior[@]}"
+  /usr/bin/python3 -I -m midscroll_routing.installation --root / native-defaults --backup "$backup/native-apps.json"
+  # Keep this profile-owned guard outside pacman's file list: a stock package
+  # replacement must retain --native-default and fail before grabbing input.
+  install -D -m 0644 "$module/system/native-default.conf" /etc/systemd/system/midscroll.service.d/native-default.conf
+  for source in mousetarget.so mouse_target_hyprland.so; do
+    if [[ $source == mousetarget.so ]]; then
+      target=/usr/lib/qt6/plugins/kwin/effects/plugins/mousetarget.so
+    else
+      target=/usr/lib/hyprland/plugins/mouse_target_hyprland.so
+    fi
+    install -d -- "${target%/*}"
+    temporary=$(mktemp "${target%/*}/.${source}.XXXXXXXX")
+    install -m 0644 "$bridge_dir/$source" "$temporary"
+    mv -f -- "$temporary" "$target"
+    temporary=
+  done
+  systemctl daemon-reload
+  systemctl enable midscroll.service
+  systemctl restart midscroll.service
+  temporary=$(mktemp /var/lib/dotfiles-mouse/.current.XXXXXXXX)
+  install -m 0644 "$backup/candidate.pkg.tar.zst" "$temporary"
+  mv -f -- "$temporary" /var/lib/dotfiles-mouse/current-package.pkg.tar.zst
+  temporary=
+  printf '%s\n' "$backup" >/var/lib/dotfiles-mouse/last-recovery
+  trap - ERR INT TERM
+  printf '%s\n' "$backup"
+}
+
+if [[ ${1-} == --system ]]; then
+  shift
+  install_system "$@"
+  exit
+fi
+if [[ ${1-} == --recover && $# -eq 2 ]]; then
+  recover_system "$2"
+  exit
+fi
+if [[ $# -gt 1 ]]; then
+  printf 'usage: %s [--dry-run|--prepare|--configs-only]\n' "$0" >&2
+  exit 2
+fi
+mode=${1-}
+case $mode in
+--dry-run)
+  printf '%s\n' 'Would build and verify pinned midscroll and both native bridges.' \
+    'Would retain a byte-verified recovery package and exact configuration snapshots.' \
+    'Would install native-default routing; native bridges activate on the next desktop session.'
+  exit 0
+  ;;
+'' | --prepare | --configs-only) ;;
+*)
+  printf 'Unknown option: %s\n' "$mode" >&2
+  exit 2
+  ;;
+esac
+[[ $EUID -ne 0 ]] || {
+  printf 'Run the public installer as the desktop user.\n' >&2
+  exit 2
+}
+cache=${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/mouse-builds
+config=${XDG_CONFIG_HOME:-$HOME/.config}
+[[ $config == "$HOME/.config" ]] || {
+  printf 'This workstation layout requires XDG_CONFIG_HOME=%s/.config.\n' "$HOME" >&2
+  exit 2
+}
+override=$config/systemd/user/midscroll-overlay.service.d/pointer-routing.conf
+if [[ -f $override ]] && ! cmp -s "$override" "$module/overlay-session.conf"; then
+  cmp -s "$override" <(printf '[Service]\nExecStart=\nExecStart=%%h/.local/bin/midscroll-pointer-overlay\n') || {
+    printf 'Unrelated overlay override: %s\n' "$override" >&2
+    exit 1
+  }
+fi
+if [[ :${XDG_CURRENT_DESKTOP-}: == *:KDE:* ]]; then
+  python3 "$repo_root/scripts/apply-settings.py" "$module/settings" --dry-run
+fi
+"$module/apps/chromium/install-user" --dry-run
+if [[ $mode != --configs-only ]]; then
+  for command in uv jq cmake makepkg git sha256sum; do
+    command -v "$command" >/dev/null || {
+      printf 'Required command missing: %s\n' "$command" >&2
+      exit 1
+    }
+  done
+  "$module/check"
+  tool=(uv run --directory "$module" python -m midscroll_routing.source --module "$module" --cache "$cache")
+  "${tool[@]}" --build-package --manifest "$cache/candidate.json"
+  "${tool[@]}" --prepare-recovery --manifest "$cache/previous.json"
+  cmake_args=()
+  if [[ -f $module/target-bridges/build/dependencies/usr/include/vulkan/vulkan_core.h ]]; then
+    cmake_args+=("-DVulkan_INCLUDE_DIR=$module/target-bridges/build/dependencies/usr/include")
+  fi
+  cmake -S "$module/target-bridges" -B "$module/target-bridges/build/dev" -G Ninja "${cmake_args[@]}"
+  cmake --build "$module/target-bridges/build/dev" --parallel 2
+  if [[ $mode == --prepare ]]; then
+    printf 'Prepared candidate: %s\nRecovery: %s\n' "$cache/candidate.json" "$cache/previous.json"
+    exit 0
+  fi
+fi
+if [[ $mode != --configs-only ]]; then
+  command -v middleclick-autoscroll >/dev/null || {
+    printf 'Install dependencies from %s/apps/chromium/aur-packages first.\n' "$module" >&2
+    exit 1
+  }
+fi
+command -v uv >/dev/null || {
+  printf 'Required command missing: uv\n' >&2
+  exit 1
+}
+if [[ $mode == --configs-only ]]; then
+  command -v midscroll-router >/dev/null || {
+    printf 'Install the verified native runtime before its session configuration.\n' >&2
+    exit 1
+  }
+fi
+state=${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles-mouse
+mkdir -p -- "$state"
+user_backup=$(mktemp -d "$state/recovery.XXXXXXXX")
+root_backup=
+services_changed=false
+service_units=(midscroll-router.service midscroll-overlay.service)
+service_enabled=() service_active=()
+if [[ $mode != --configs-only ]]; then
+  for unit in "${service_units[@]}"; do
+    enabled=$(systemctl --user is-enabled "$unit" 2>/dev/null || true)
+    case $enabled in
+    enabled | disabled | static | not-found | '') ;;
+    *)
+      printf 'Unsupported existing service state: %s %s\n' "$unit" "$enabled" >&2
+      exit 1
+      ;;
+    esac
+    service_enabled+=("$enabled")
+    if systemctl --user is-active --quiet "$unit"; then service_active+=(active); else service_active+=(inactive); fi
+  done
+fi
+install_tool=(uv run --directory "$module" python -m midscroll_routing.installation --root "$HOME")
+"${install_tool[@]}" snapshot "$user_backup/files.json" \
+  .config/systemd/user/midscroll-overlay.service.d/pointer-routing.conf .config/kwinrc \
+  .config/middleclick-autoscroll/config
+rollback_user() {
+  local status=$1 index
+  trap - ERR INT TERM
+  if [[ $services_changed == true ]]; then
+    systemctl --user stop "${service_units[@]}" || printf 'Could not stop mouse helpers during recovery.\n' >&2
+    for index in "${!service_units[@]}"; do
+      if [[ ${service_enabled[index]} != enabled ]]; then
+        systemctl --user disable "${service_units[index]}" || printf 'Could not restore helper enable state.\n' >&2
+      fi
+    done
+  fi
+  if ! "${install_tool[@]}" restore "$user_backup/files.json"; then
+    printf 'User recovery failed; retained %s\n' "$user_backup" >&2
+  fi
+  if [[ -n $root_backup ]]; then
+    if ! pkexec "$module/install" --recover "$root_backup"; then
+      printf 'System recovery needs approval; retained %s\n' "$root_backup" >&2
+    fi
+  fi
+  if [[ $services_changed == true ]]; then
+    systemctl --user daemon-reload || printf 'Could not reload restored helper units.\n' >&2
+    for index in "${!service_units[@]}"; do
+      if [[ ${service_active[index]} == active ]]; then
+        systemctl --user start "${service_units[index]}" || printf 'Could not restart restored helper.\n' >&2
+      fi
+    done
+  fi
+  exit "$status"
+}
+trap 'rollback_user "$?"' ERR
+trap 'rollback_user 130' INT
+trap 'rollback_user 143' TERM
+if [[ $mode != --configs-only ]]; then
+  pkexec "$module/install" --system "$cache/candidate.json" "$cache/previous.json" "$module/target-bridges/build/dev"
+  root_backup=$(cat /var/lib/dotfiles-mouse/last-recovery)
+  printf 'System recovery retained: %s\n' "$root_backup"
+fi
+if ! cmp -s "$module/overlay-session.conf" "$override"; then
+  install -D -m 0644 "$module/overlay-session.conf" "$override"
+fi
+if [[ :${XDG_CURRENT_DESKTOP-}: == *:KDE:* ]]; then
+  python3 "$repo_root/scripts/apply-settings.py" "$module/settings"
+fi
+"$module/apps/chromium/install-user" --configs-only
+if [[ $mode != --configs-only ]]; then
+  services_changed=true
+  systemctl --user daemon-reload
+  systemctl --user enable midscroll-router.service midscroll-overlay.service
+  systemctl --user restart midscroll-router.service midscroll-overlay.service
+  middleclick-autoscroll apply --quiet
+fi
+trap - ERR INT TERM
+printf '%s\n' 'Mouse configuration applied. Native target bridges load at the next desktop session.'
