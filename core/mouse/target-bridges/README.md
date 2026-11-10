@@ -153,7 +153,9 @@ matched the local pacman sync database:
 Both modules compiled and linked against the installed versions above with GCC
 16.2.1 and CMake 4.4.5. Their expected plugin entry points were inspected in the
 built shared objects. Neither module was installed, loaded or queried in the
-running desktop. No runtime or physical-input acceptance is claimed.
+running desktop. Both passed native interface acceptance in contained disposable
+compositors; see the [reproducible harness](tests/README.md). Physical input and
+complete daemon/application acceptance remain separate gates.
 
 ## Acceptance still required
 
