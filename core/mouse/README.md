@@ -13,8 +13,8 @@ require a browser window-class exception list.
 - `package/usr/share/midscroll/native-default.conf` owns only `NATIVE_DEFAULT`
   and `FALLBACK_APPS` when upgrading an existing configuration. Other scroll
   tuning is preserved. A first installation uses the complete profile.
-- `target-bridges/` exposes actual pointer focus for the exact supported KWin and
-  Hyprland versions. See its [interface and timing contract](target-bridges/README.md).
+- `compositor-plugins/` exposes actual pointer focus for the exact supported KWin and
+  Hyprland versions. See its [interface and timing contract](compositor-plugins/README.md).
 - `apps/chromium/` owns the supported `middleclick-autoscroll` configuration and
   AUR dependency manifest. Its upstream helper discovers native engine flags;
   this module keeps no Chromium application-name list. Customized helper config
