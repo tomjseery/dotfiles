@@ -9,41 +9,49 @@ PR: not opened; publication remains held. Live installation authorized 2026-11-1
 
 ## Current state
 
-The requested visible global cursor behaviour is NOT complete. The user reports
-terminal fallback shows the desired cursor; native Firefox scrolling does not.
-The independent audit and a contained headful Wayland experiment reproduced
-both failures: native scrolling never activates the shared renderer, and Firefox's
-popup guard prevents the attempted CSS PNG from becoming the actual cursor.
-Private state injection into the existing renderer produced actual themed up/down
-cursor images over the still-active native browser popup, then restored the pointer.
-Evidence: `~/.cache/dotfiles/gecko-wayland-cursor.v0fl6vrs/result.json`.
+The repaired package and Gecko state adapter are installed. Running Firefox still
+needs a restart and the user's visible acceptance; do not call the live appearance
+complete before that. A restart page is open and the user check is pending.
 
-The repair now connects native autoscroll lifecycle to the existing renderer through
-bounded presentation-only leases on the existing state socket. These peers cannot
-enter routing or focus handlers. They have independent quotas and expire after
-300ms, on disconnect or inactive logind UID state. Output is filtered by UID;
-separate graphical sessions of the same UID are not isolated by this daemon.
-The observer has no cursor images/styles or direction calculations. It hides the
-fixed marker after daemon acceptance and restores it on cancellation or failure.
-Acceptance is not a renderer acknowledgement; actual rendered verification is
-required separately. Existing renderer code and physical input routing are unchanged.
+Final production source is `44bb31d`. Installed engine, session reporter,
+presentation module and browser observer hashes exactly match the final contained
+Wayland acceptance. The live daemon and both session helpers restarted successfully.
+An inactive presentation probe received acceptance from the real daemon, proving
+that its actual session reporter, KWin PID correlation and renderer connection are
+ready without activating the live cursor.
 
-The obsolete PNG compiler was removed. The full 118-test gate, Ruff, strict mypy,
-Bash syntax and ShellCheck pass. A package was built and archive/import inspected.
-An isolated Firefox proxy check preserves link/tab clicks, native scroll progress,
-Escape cleanup and lost-ack restoration. Full candidate Wayland verification,
-independent source review and live installation remain pending.
+Final actual Wayland evidence uses the real native observer, session D-Bus reporter,
+kernel socket PID correlation and unchanged existing KWin renderer. Native moving
+up/down cursor pixels, scroll progress 0→1511, link opening, tab closing, Escape and
+next-click stopping all pass. Dropping only the renderer restores the native marker
+and pointer in 87.2ms. Fresh disabled-effect startup returns null readiness and
+keeps the native circle visible. Evidence:
+`~/.cache/dotfiles/gecko-final-full.0vx9wpuv/result.json` and
+`~/.cache/dotfiles/gecko-final-absent.q1l69e2j/result.json`.
 
-Native-default midscroll and its session services are installed and running at the
-previous package. Native link/tab clicks and scrolling were confirmed by the user.
-The old browser styling startup files were removed; the candidate state observer
-has NOT yet been installed. A running browser can retain previously loaded code.
-The 106-test/headless CSS results were never proof of actual pointer rendering.
+All 135 source tests, Ruff, strict mypy, Bash syntax and ShellCheck pass. The public
+installer completed its real preparation, archive/import inspection, recovery and
+root/user service stages. Installed AutoConfig startup passed its isolated profile
+check, including native click semantics, scroll progress, closure revocation and
+lost-ack restoration; this proxy test explicitly does not prove rendered pixels.
+Its final advisory stop frame is optional: transport EOF is required revocation.
+
+The failed CSS/PNG rendering path was removed. Native engines report bounded
+presentation-only leases into one existing renderer. These peers cannot enter
+routing or focus handlers. The existing trusted session helper supplies expiring
+loaded-effect/PID observations; root matches a distinct same-UID socket peer.
+No executable inspection or added daemon capability is used. Same-UID helper
+impersonation remains within the existing local-user trust boundary, and separate
+graphical sessions of the same UID remain outside the current setup's isolation.
+
+Root recovery for this update: `/var/lib/dotfiles-mouse/recovery.wdowetCi`.
+Earlier `/var/lib/dotfiles-mouse/recovery.XLA6WgJK` is retained too. No desktop
+restart, effect hot-unload, profile rewrite or publication occurred.
 
 ## Reviews
 
-Native Codex and independent security/concurrency reviews completed; all eleven
-technical findings are resolved. The canonical Git-private work order preserves frozen
+Native Codex and independent security/correctness review approved final production
+source `44bb31d`; all retained technical/visual findings are resolved. The canonical Git-private work order preserves frozen
 passes, original findings and dispositions. Resolve it with Engineering's
 `workflow_ops.py --root CHECKOUT --workflow-run-id mouse-native review-path`.
 The final documentation closeout uses that same work order; no second ledger or
@@ -55,11 +63,11 @@ from the onboarding owner are preserved outside the mouse commits.
 
 ## Next action and limits
 
-Run the full candidate through isolated actual Wayland cursor acceptance, review
-the frozen source, then install the verified package and native lifecycle bridge.
-Preserve the working link/tab routing. Browser startup activation and actual live
-acceptance remain required before calling the visual issue fixed.
+Wait for the user to restart Firefox using its open native restart page, then
+confirm the visible moving arrow and preserved link/tab clicks. A negative report
+returns to live causal diagnosis; a source test or startup marker is not acceptance.
+The current Firefox process was 735715 when the restart page opened.
 
-Root recovery: `/var/lib/dotfiles-mouse/recovery.XLA6WgJK`. Preserve unrelated work,
-sessions and the withdrawn experiment. Publication is not authorized. Do not log
-out, reboot, restart or hot-unload the live compositor.
+Preserve unrelated work, sessions, prior recovery directories and the withdrawn
+experiment. Publication is not authorized. Do not log out, reboot, restart or
+hot-unload the live compositor.

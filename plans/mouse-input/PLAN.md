@@ -131,7 +131,9 @@ renderer; no browser cursor styles, image compiler or direction calculation rema
 Physical input routing and native scroll engines retain their current ownership.
 The browser restores its fixed indicator when its lease cannot be maintained.
 
-Next: complete actual candidate Wayland verification, independent frozen-source
-review, package/observer installation and live browser startup activation. The
-118-test gate and headless proxy checks pass; these do not replace actual pointer
-acceptance. See PROGRESS.md for the current deployment and evidence state.
+Final production source `44bb31d` passed real contained Wayland verification,
+independent review and package/observer installation. All 135 source checks pass;
+the installed files match the tested hashes and an inactive live readiness probe
+passes. Running Firefox must restart to load its startup bridge, then the user
+must confirm visible arrows and native click behavior. See PROGRESS.md for the
+pending acceptance and retained recovery. Do not mark this goal complete yet.
