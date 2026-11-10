@@ -22,7 +22,6 @@ if command -v fzf >/dev/null 2>&1; then
     export FZF_CTRL_T_OPTS="--preview 'bat --color=always --style=numbers --line-range=:300 {} 2>/dev/null || eza --tree --color=always {} 2>/dev/null'"
 fi
 
-command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init bash --cmd cd)"
 command -v starship >/dev/null 2>&1 && eval "$(starship init bash)"
 
 # Agent Tweaks' Codex dictation adapter proxies the TUI through a second PTY
