@@ -169,7 +169,7 @@ def _overlap(first: Path, second: Path) -> bool:
     return first == second or first in second.parents or second in first.parents
 
 
-def restore(root: Path, source: Path) -> None:
+def _load_snapshot(root: Path, source: Path) -> dict[Path, FileState | None]:
     _validate_path(source)
     saved = json.loads(source.read_text(encoding="utf-8"))
     if not isinstance(saved, dict):
@@ -192,6 +192,11 @@ def restore(root: Path, source: Path) -> None:
     # Parent/child destinations cannot both describe regular files.
     if any(parent in validated for path in validated for parent in path.parents):
         raise ValueError("Overlapping recovery paths")
+    return validated
+
+
+def restore(root: Path, source: Path) -> None:
+    validated = _load_snapshot(root, source)
     for path, entry in validated.items():
         if entry is None:
             path.unlink(missing_ok=True)
@@ -326,23 +331,77 @@ def validate_native_cursor(root: Path, source: Path) -> None:
     _native_cursor_files(root, source)
 
 
+def _encode_snapshot(root: Path, records: dict[Path, FileState | None]) -> bytes:
+    saved = {
+        str(path.relative_to(root)): (
+            None
+            if record is None
+            else {
+                "data": base64.b64encode(record.data).decode(),
+                "mode": record.mode,
+            }
+        )
+        for path, record in records.items()
+    }
+    return json.dumps(saved, sort_keys=True).encode()
+
+
+def _attempt_snapshot(backup: Path, data: bytes) -> Path:
+    fd, name = tempfile.mkstemp(dir=backup.parent, prefix=f".{backup.name}.attempt-")
+    attempt = Path(name)
+    try:
+        with os.fdopen(fd, "wb") as output:
+            output.write(data)
+            output.flush()
+            os.fsync(output.fileno())
+    except OSError:
+        attempt.unlink(missing_ok=True)
+        raise
+    return attempt
+
+
 def configure_native_cursor(root: Path, source: Path, backup: Path) -> None:
     """Install the owned browser-chrome cursor presentation without profile edits."""
     files = _native_cursor_files(root, source)
+    _validate_path(backup)
+    master = _load_snapshot(root, backup) if backup.exists() else {}
+    previous: dict[Path, FileState | None] = {}
+    for file in files:
+        path = safe_path(root, file.relative_path)
+        if _overlap(path, backup):
+            raise ValueError("Recovery snapshot overlaps an owned path")
+        previous[path] = (
+            FileState(path.read_bytes(), stat.S_IMODE(path.stat().st_mode))
+            if path.exists()
+            else None
+        )
+    extended = master | {
+        path: state for path, state in previous.items() if path not in master
+    }
+    if any(parent in extended for path in extended for parent in path.parents):
+        raise ValueError("Overlapping recovery paths")
+    if extended != master:
+        replace_file(backup, _encode_snapshot(root, extended), 0o600)
     if all(
-        (path := safe_path(root, file.relative_path)).exists()
-        and path.read_bytes() == file.data
-        and stat.S_IMODE(path.stat().st_mode) == 0o644
+        previous[safe_path(root, file.relative_path)] == FileState(file.data, 0o644)
         for file in files
     ):
         return
-    snapshot(root, [file.relative_path for file in files], backup)
+    attempt = _attempt_snapshot(backup, _encode_snapshot(root, previous))
     try:
         for file in files:
             replace_file(safe_path(root, file.relative_path), file.data)
     except OSError, ValueError:
-        restore(root, backup)
+        try:
+            restore(root, attempt)
+        except (OSError, ValueError) as error:
+            raise OSError(
+                f"Native cursor rollback failed; previous files are saved at {attempt}"
+            ) from error
+        attempt.unlink()
         raise
+    else:
+        attempt.unlink()
 
 
 def main() -> None:

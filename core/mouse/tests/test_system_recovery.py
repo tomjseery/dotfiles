@@ -145,6 +145,7 @@ def test_system_failure_or_manual_recovery_restores_state(
             str(manifest),
             str(manifest),
             str(bridges),
+            str(module_path / "apps/gecko/native-cursor.cfg"),
         ],
         text=True,
         capture_output=True,

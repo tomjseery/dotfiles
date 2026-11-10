@@ -9,8 +9,11 @@ for the test process. No existing browser or profile is used.
 """
 
 import argparse
+import base64
+import hashlib
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -30,7 +33,7 @@ const browser = gBrowser.selectedBrowser;
 const popup = browser._autoScrollPopup;
 return {state: popup?.state ?? null, opacity: popup?.style.opacity ?? null,
         active: !!browser._autoScrollBrowsingContext,
-        calls: window.__cursorAcceptanceCalls.slice()};
+        cursor: getComputedStyle(document.documentElement).cursor};
 """
 
 
@@ -224,6 +227,36 @@ def browser_session(firefox: str) -> Iterator[Marionette]:
                         process.wait()
 
 
+def candidate_source(source: Path) -> str:
+    template = source.read_text(encoding="utf-8")
+    if "/* DOTFILES_CURSOR_IMAGES */ {}" in template:
+        from midscroll_routing.cursor import compile_config
+
+        return compile_config(source).decode("utf-8")
+    return template
+
+
+def css_cursor(client: Marionette) -> str:
+    value = client.script("return getComputedStyle(document.documentElement).cursor;")
+    require(isinstance(value, str), "computed CSS cursor was not a string")
+    if not isinstance(value, str):
+        raise AcceptanceError("invalid computed cursor")
+    return value
+
+
+def png_cursor(cursor: str) -> bytes:
+    match = re.search(r"data:image/png;base64,([A-Za-z0-9+/=]+)", cursor)
+    if match is None:
+        raise AcceptanceError(f"computed cursor does not contain a PNG: {cursor}")
+    image = base64.b64decode(match[1], validate=True)
+    require(image.startswith(b"\x89PNG\r\n\x1a\n"), "cursor image is not a PNG")
+    return image
+
+
+def cursor_evidence(cursor: str) -> dict[str, Json]:
+    return {"png": True, "sha256": hashlib.sha256(png_cursor(cursor)).hexdigest()}
+
+
 def acceptance(client: Marionette, source: Path | None) -> dict[str, object]:
     client.context("chrome")
     result: dict[str, object] = {"mode": "source" if source else "installed"}
@@ -237,15 +270,12 @@ def acceptance(client: Marionette, source: Path | None) -> dict[str, object]:
             "startup already installed an observer; use --installed",
         )
         require(
-            client.script(source.read_text(encoding="utf-8") + "\n" + MARKER) is True,
+            client.script(candidate_source(source) + "\n" + MARKER) is True,
             "candidate source did not attach its observer",
         )
     result["startup_marker"] = startup_marker
     require(
-        client.script(
-            "return typeof window.setCursor === 'function' && !!window.gBrowser;"
-        )
-        is True,
+        client.script("return !!window.gBrowser;") is True,
         "Firefox chrome cursor/tab APIs are unavailable",
     )
     prefs = as_object(
@@ -259,20 +289,21 @@ def acceptance(client: Marionette, source: Path | None) -> dict[str, object]:
         f"native mouse preferences differ: {prefs}",
     )
     result["preferences"] = prefs
-    client.script("""
-window.__cursorAcceptanceCalls = [];
-const original = window.setCursor.bind(window);
-window.setCursor = cursor => {
-  window.__cursorAcceptanceCalls.push(cursor);
-  return original(cursor);
-};
-""")
+    baseline_chrome = css_cursor(client)
+    require(
+        "data:image/png" not in baseline_chrome, "PNG cursor active before autoscroll"
+    )
     client.context("content")
     html = (
         '<html><body style="height:5000px">'
         '<a id="test-link" href="about:blank">Test link</a></body></html>'
     )
     client.command("WebDriver:Navigate", {"url": "data:text/html," + quote(html)})
+    baseline_content = css_cursor(client)
+    require(
+        "data:image/png" not in baseline_content, "PNG cursor active on fresh content"
+    )
+    result["before"] = {"chrome": baseline_chrome, "content": baseline_content}
     link = as_object(
         client.script(
             """const r=document.getElementById('test-link').getBoundingClientRect();
@@ -284,9 +315,12 @@ return {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2)};"""
     client.context("chrome")
     client.wait("return gBrowser.tabs.length === 2;", "native middle-click link tab")
     require(
-        client.script("return window.__cursorAcceptanceCalls.length;") == 0,
+        css_cursor(client) == baseline_chrome,
         "middle-click link activated cursor presentation",
     )
+    client.context("content")
+    require(css_cursor(client) == baseline_content, "link click changed content cursor")
+    client.context("chrome")
     result["link_tabs"] = 2
     # Exercise real middle-click tab close, rather than calling removeTab().
     tab = as_object(
@@ -299,16 +333,18 @@ return {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2)};"""
     client.pointer(cast(int, tab["x"]), cast(int, tab["y"]), 1)
     client.wait("return gBrowser.tabs.length === 1;", "native middle-click tab close")
     require(
-        client.script("return window.__cursorAcceptanceCalls.length;") == 0,
+        css_cursor(client) == baseline_chrome,
         "middle-click tab close activated cursor presentation",
     )
     result["middle_click_tab_close"] = True
     client.context("content")
+    require(css_cursor(client) == baseline_content, "tab close changed content cursor")
     client.pointer(300, 200, 1)
     client.context("chrome")
     client.wait(
         """return gBrowser.selectedBrowser._autoScrollPopup?.state === 'open'
-               && window.__cursorAcceptanceCalls.includes('n-resize');""",
+               && getComputedStyle(document.documentElement).cursor
+                  .includes('data:image/png;base64,');""",
         "native popup and initial arrow",
     )
     start = as_object(client.script(STATE))
@@ -316,16 +352,39 @@ return {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2)};"""
         start["active"] is True and start["opacity"] == "0",
         f"native popup was not active and transparent: {start}",
     )
+    up_chrome = css_cursor(client)
+    up_image = png_cursor(up_chrome)
+    client.context("content")
+    client.wait(
+        "return getComputedStyle(document.documentElement).cursor"
+        ".includes('data:image/png;base64,');",
+        "remote content PNG cursor",
+    )
+    up_content = css_cursor(client)
+    require(
+        png_cursor(up_content) == up_image, "remote content did not receive up image"
+    )
+    start["cursor"] = cursor_evidence(up_chrome)
+    start["content_cursor"] = cursor_evidence(up_content)
     result["start"] = start
+    client.context("chrome")
     client.script(
         """window.dispatchEvent(new MouseEvent('mousemove', {
   screenX:gBrowser.selectedBrowser._startX,
   screenY:gBrowser.selectedBrowser._startY+200, bubbles:true}));"""
     )
     client.wait(
-        "return window.__cursorAcceptanceCalls.at(-1) === 's-resize';", "downward arrow"
+        "return getComputedStyle(document.documentElement).cursor !== "
+        + json.dumps(up_chrome)
+        + ";",
+        "different directional PNG",
     )
-    result["move"] = client.script(STATE)
+    down_chrome = css_cursor(client)
+    down_image = png_cursor(down_chrome)
+    require(down_image != up_image, "up/down cursors used identical PNG pixels")
+    move = as_object(client.script(STATE))
+    move["cursor"] = cursor_evidence(down_chrome)
+    result["move"] = move
     origin = as_object(
         client.script(
             """return {x:gBrowser.selectedBrowser._startX,
@@ -333,6 +392,15 @@ return {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2)};"""
         )
     )
     client.context("content")
+    client.wait(
+        "return getComputedStyle(document.documentElement).cursor !== "
+        + json.dumps(up_content)
+        + ";",
+        "remote content directional PNG",
+    )
+    down_content = css_cursor(client)
+    require(png_cursor(down_content) == down_image, "remote content down image differs")
+    move["content_cursor"] = cursor_evidence(down_content)
     # Feed Firefox's own native main-thread autoscroller, never scrollTo().
     client.script(
         f"""document.dispatchEvent(new MouseEvent('mousemove',{{
@@ -351,7 +419,8 @@ return {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2)};"""
     client.escape()
     client.wait(
         """return gBrowser.selectedBrowser._autoScrollPopup?.state === 'closed'
-               && window.__cursorAcceptanceCalls.at(-1) === 'auto';""",
+               && !getComputedStyle(document.documentElement).cursor
+                    .includes('data:image/png;base64,');""",
         "native Escape cancellation and cursor restoration",
     )
     stop = as_object(client.script(STATE))
@@ -359,6 +428,15 @@ return {x:Math.round(r.x+r.width/2), y:Math.round(r.y+r.height/2)};"""
         stop["active"] is False and stop["opacity"] == "",
         f"native cleanup did not restore popup opacity: {stop}",
     )
+    require(css_cursor(client) == baseline_chrome, "chrome CSS cursor was not restored")
+    client.context("content")
+    client.wait(
+        "return getComputedStyle(document.documentElement).cursor === "
+        + json.dumps(baseline_content)
+        + ";",
+        "remote content cursor restoration",
+    )
+    stop["content_cursor"] = css_cursor(client)
     result["stop"] = stop
     result["passed"] = True
     return result

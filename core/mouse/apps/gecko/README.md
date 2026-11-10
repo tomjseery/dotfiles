@@ -1,9 +1,9 @@
 # Native autoscroll cursor
 
 `native-cursor.cfg` observes Gecko's actual browser-chrome autoscroll popup.
-It hides the popup's paint and locks the native window cursor to the themed
-north/south/east/west arrow appropriate to movement. Native cancellation restores
-the previous popup opacity and normal cursor. It neither intercepts middle clicks
+It hides the popup's paint and applies the current theme's original
+up/down/left/right cursor images through a temporary user cursor stylesheet. Native cancellation restores
+the previous popup opacity and normal cursor stylesheet. It neither intercepts middle clicks
 nor replaces scrolling, link handling or tab handling.
 
 Installation uses Mozilla's native AutoConfig startup mechanism with a root-owned
@@ -43,3 +43,7 @@ Native interfaces were verified with Firefox 159.0.1. Missing/changed native sta
 leaves the ordinary browser indicator intact. Requalify the observer after engine
 UI changes. The script uses event observation, not browser executable/prototype
 patching.
+
+`midscroll_routing.cursor` reads the existing Xcursor images and hotspots, renders
+inline PNGs, and writes the runtime configuration outside Git. It preserves the
+original glyphs and does not modify the cursor theme.
