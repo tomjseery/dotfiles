@@ -12,7 +12,7 @@ from midscroll_routing.presentation import ACCEPTED
 
 
 @pytest.mark.parametrize(
-    "case", ["normal", "missing", "lost", "mismatched", "unregistered"]
+    "case", ["normal", "missing", "lost", "mismatched", "unregistered", "self"]
 )
 def test_native_presentation_requires_correlated_live_renderer(
     engine: ModuleType,
@@ -38,7 +38,15 @@ def test_native_presentation_requires_correlated_live_renderer(
             assert await router.readline() == b"0\n"
             if case != "unregistered":
                 router_writer.write(b'routing {"version":1,"kind":"hello"}\n')
-            pid = None if case == "missing" else 999 if case == "mismatched" else 101
+            pid = (
+                None
+                if case == "missing"
+                else 999
+                if case == "mismatched"
+                else 202
+                if case == "self"
+                else 101
+            )
             router_writer.write(
                 ("renderer " + json.dumps({"version": 1, "pid": pid}) + "\n").encode()
             )

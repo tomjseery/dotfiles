@@ -426,3 +426,34 @@ def test_renderer_monitor_reports_null_on_probe_timeout(
         assert disconnected == [True]
 
     asyncio.run(scenario())
+
+
+def test_run_retries_after_renderer_bus_connection_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        calls: list[str] = []
+        retried = asyncio.Event()
+        delays: list[float] = []
+
+        async def serve(desktop: str) -> None:
+            calls.append(desktop)
+            if len(calls) == 1:
+                raise TimeoutError("renderer bus connection")
+            retried.set()
+            await asyncio.Future[None]()
+
+        async def delay(seconds: float) -> None:
+            delays.append(seconds)
+
+        monkeypatch.setattr(session, "serve", serve)
+        monkeypatch.setattr(asyncio, "sleep", delay)
+        task = asyncio.create_task(session.run("KDE"))
+        await asyncio.wait_for(retried.wait(), 1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert calls == ["KDE", "KDE"]
+        assert delays == [2]
+
+    asyncio.run(scenario())

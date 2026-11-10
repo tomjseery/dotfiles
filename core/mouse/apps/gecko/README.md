@@ -9,7 +9,7 @@ closing remain owned by the browser.
 
 The existing session helper queries KWin's loaded-effect state and unique D-Bus
 owner PID. The daemon accepts a lease only when that fresh PID matches the kernel
-peer credentials of a live state-socket connection for the same UID. Renderer
+peer credentials of a live state-socket connection for the same UID. Routing peers and their PIDs cannot themselves qualify as the renderer. Renderer
 loss or stale readiness reports revoke eligibility. This needs no access to
 KWin's protected `/proc/PID/exe` and no extra daemon capabilities. It checks
 renderer availability, not a rendered-frame acknowledgement.
@@ -54,3 +54,8 @@ requires the separate contained Wayland experiment with the real KWin effect.
 The observer was qualified with Firefox 159.0.1. Requalify after browser UI changes.
 
 Chromium/Electron currently retain their native scrolling and cursor presentation.
+
+Readiness reports use the existing trusted session-helper boundary. They do not
+independently authenticate arbitrary same-UID programs posing as that helper; the
+input-routing protocol already relies on that same local-user trust. Presentation
+messages add no authority to route or synthesize input.
