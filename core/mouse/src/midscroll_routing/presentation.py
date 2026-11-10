@@ -4,26 +4,12 @@ import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 
 LEASE_SECONDS = 0.3
+RENDERER_LEASE_SECONDS = 1.0
 MAX_PEERS = 8
 MAX_PEERS_PER_UID = 4
 ACCEPTED = b'presentation {"version":1,"accepted":true}\n'
-
-
-def is_renderer(pid: int | None) -> bool:
-    """Recognize the installed compositor, rather than a spoofable argv name."""
-    if pid is None:
-        return False
-    try:
-        executable = Path(f"/proc/{pid}/exe").readlink()
-        if executable not in {Path("/usr/bin/kwin_wayland"), Path("/usr/bin/kwin_x11")}:
-            return False
-        status = executable.stat()
-    except OSError:
-        return False
-    return status.st_uid == 0 and not status.st_mode & 0o022
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +30,38 @@ class Presentation:
         self.clock = clock
         self.peers: dict[object, int] = {}
         self.leases: dict[object, Lease] = {}
+        self.renderers: dict[object, tuple[int | None, float]] = {}
+
+    def report_renderer(self, router: object, line: str) -> None:
+        """Caller admits only the existing registered routing authority."""
+        if not line.startswith("renderer ") or len(line) > 256:
+            raise ValueError("Invalid renderer frame")
+        payload = json.loads(line[9:])
+        if (
+            not isinstance(payload, dict)
+            or set(payload) != {"version", "pid"}
+            or type(payload["version"]) is not int
+            or payload["version"] != 1
+            or (
+                payload["pid"] is not None
+                and (
+                    type(payload["pid"]) is not int
+                    or not 0 < payload["pid"] <= 0xFFFFFFFF
+                )
+            )
+        ):
+            raise ValueError("Invalid renderer report")
+        self.renderers[router] = (payload["pid"], self.clock() + RENDERER_LEASE_SECONDS)
+
+    def renderer_pid(self, router: object) -> int | None:
+        report = self.renderers.get(router)
+        if report is None:
+            return None
+        pid, deadline = report
+        if self.clock() >= deadline:
+            self.renderers.pop(router, None)
+            return None
+        return pid
 
     def admit(self, peer: object, uid: int) -> bool:
         if (
@@ -58,6 +76,7 @@ class Presentation:
     def disconnect(self, peer: object) -> None:
         self.peers.pop(peer, None)
         self.leases.pop(peer, None)
+        self.renderers.pop(peer, None)
 
     def receive(self, peer: object, line: str) -> None:
         """Accept only presentation frames; malformed input revokes the peer."""

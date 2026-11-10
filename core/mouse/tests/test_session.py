@@ -2,8 +2,11 @@ import asyncio
 import json
 from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
 import pytest
+from dbus_fast import Message, MessageType
+from dbus_fast.aio import MessageBus
 
 from midscroll_routing import Target, session
 
@@ -113,6 +116,10 @@ def test_session_serves_real_socket_without_drawing_or_focus_reports(
             ready.set()
             await asyncio.Future[None]()
 
+        async def renderer(desktop: str, writer: asyncio.StreamWriter) -> None:
+            await asyncio.Future[None]()
+
+        monkeypatch.setattr(session, "renderer_monitor", renderer)
         monkeypatch.setattr(session, "target", query)
         monkeypatch.setattr(session, "observe", observer)
         monkeypatch.setattr(session, "trusted_socket", lambda _: True)
@@ -240,5 +247,182 @@ def test_hyprland_observation_waits_for_matching_barrier_and_reports_changes(
             with pytest.raises(OSError, match="disconnected"):
                 await task
         assert notifications == [True]
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize(
+    ("loaded", "pid", "changed_owner", "expected"),
+    [(True, 1234, False, 1234), (False, 1234, False, None), (True, 1234, True, None)],
+)
+def test_renderer_probe_uses_unique_owner_and_detects_owner_change(
+    loaded: bool,
+    pid: int,
+    changed_owner: bool,
+    expected: int | None,
+) -> None:
+    calls: list[Message] = []
+
+    class Bus:
+        async def call(self, request: Message) -> Message:
+            calls.append(request)
+            if request.member == "GetNameOwner":
+                unique = ":1.43" if changed_owner and len(calls) > 1 else ":1.42"
+                return Message(
+                    message_type=MessageType.METHOD_RETURN,
+                    reply_serial=1,
+                    signature="s",
+                    body=[unique],
+                )
+            if request.member == "isEffectLoaded":
+                assert request.destination == ":1.42"
+                assert request.path == "/Effects"
+                assert request.body == ["midscrollcursor"]
+                return Message(
+                    message_type=MessageType.METHOD_RETURN,
+                    reply_serial=1,
+                    signature="b",
+                    body=[loaded],
+                )
+            assert request.member == "GetConnectionUnixProcessID"
+            assert request.body == [":1.42"]
+            return Message(
+                message_type=MessageType.METHOD_RETURN,
+                reply_serial=1,
+                signature="u",
+                body=[pid],
+            )
+
+    assert asyncio.run(session.renderer_pid(cast(MessageBus, Bus()))) == expected
+    if not loaded:
+        assert [call.member for call in calls] == ["GetNameOwner", "isEffectLoaded"]
+
+
+@pytest.mark.parametrize(
+    ("signature", "value"),
+    [("s", "true"), ("u", 1), ("b", False)],
+)
+def test_renderer_probe_rejects_malformed_or_unavailable_bus_reply(
+    signature: str,
+    value: object,
+) -> None:
+    class Bus:
+        async def call(self, request: Message) -> Message:
+            return Message(
+                message_type=MessageType.METHOD_RETURN,
+                reply_serial=1,
+                signature=signature,
+                body=[value],
+            )
+
+    with pytest.raises(ValueError, match=r"renderer|owner"):
+        asyncio.run(session.renderer_pid(cast(MessageBus, Bus())))
+
+
+@pytest.mark.parametrize(
+    ("desktop", "resolved"), [("KDE", 4567), ("KDE", None), ("Hyprland", None)]
+)
+def test_renderer_monitor_reports_pid_or_null_and_cancels_cleanly(
+    desktop: str,
+    resolved: int | None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        disconnected: list[bool] = []
+        reports: list[bytes] = []
+        reported = asyncio.Event()
+
+        class Bus:
+            def __init__(self, *, auth_timeout: int) -> None:
+                assert desktop == "KDE"
+
+            async def connect(self) -> MessageBus:
+                return cast(MessageBus, self)
+
+            def disconnect(self) -> None:
+                disconnected.append(True)
+
+        async def resolve(bus: MessageBus) -> int | None:
+            return resolved
+
+        class Transport:
+            def get_write_buffer_size(self) -> int:
+                return 0
+
+        class Writer:
+            transport = Transport()
+
+            def write(self, data: bytes) -> None:
+                reports.append(data)
+                reported.set()
+
+            async def drain(self) -> None:
+                return
+
+        monkeypatch.setattr(session, "MessageBus", Bus)
+        monkeypatch.setattr(session, "renderer_pid", resolve)
+        task = asyncio.create_task(
+            session.renderer_monitor(desktop, cast(asyncio.StreamWriter, Writer()))
+        )
+        await asyncio.wait_for(reported.wait(), 1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert len(reports) == 1
+        assert json.loads(reports[0][9:]) == {
+            "version": 1,
+            "pid": resolved,
+        }
+        assert disconnected == ([True] if desktop == "KDE" else [])
+
+    asyncio.run(scenario())
+
+
+def test_renderer_monitor_reports_null_on_probe_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def scenario() -> None:
+        reported = asyncio.Event()
+        reports: list[bytes] = []
+        disconnected: list[bool] = []
+
+        class Bus:
+            def __init__(self, *, auth_timeout: int) -> None:
+                pass
+
+            async def connect(self) -> MessageBus:
+                return cast(MessageBus, self)
+
+            def disconnect(self) -> None:
+                disconnected.append(True)
+
+        async def resolve(bus: MessageBus) -> int:
+            raise TimeoutError("test deadline")
+
+        class Transport:
+            def get_write_buffer_size(self) -> int:
+                return 0
+
+        class Writer:
+            transport = Transport()
+
+            def write(self, data: bytes) -> None:
+                reports.append(data)
+                reported.set()
+
+            async def drain(self) -> None:
+                return
+
+        monkeypatch.setattr(session, "MessageBus", Bus)
+        monkeypatch.setattr(session, "renderer_pid", resolve)
+        task = asyncio.create_task(
+            session.renderer_monitor("KDE", cast(asyncio.StreamWriter, Writer()))
+        )
+        await asyncio.wait_for(reported.wait(), 1)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        assert json.loads(reports[0][9:]) == {"version": 1, "pid": None}
+        assert disconnected == [True]
 
     asyncio.run(scenario())
