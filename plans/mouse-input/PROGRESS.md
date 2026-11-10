@@ -28,7 +28,7 @@ repeat runs and recovery after a later settings failure. A private-root rehearsa
 checks automatic recovery after a failed service restart and explicit recovery
 after successful installation, using fake package/service boundaries. Real Arch
 package rebuilding and system-interpreter archive inspection are separate checks.
-The whole-source gate passes 79 tests, ruff and strict mypy; real native package
+The whole-source gate passes 80 tests, ruff and strict mypy; real native package
 building and archive import inspection pass. Incremental review is pending.
 
 ## Reviews
@@ -39,7 +39,12 @@ resynchronization, inactive peers, sandbox UID mapping, packaged imports, GUI
 policy preservation and focus excursions. The first incremental review at 3f0b887 verified the original repairs and
 requested two additional changes: a module rebind for /tmp checkouts and complete
 installer transaction serialization with an invocation-specific recovery receipt.
-Both fixes and regressions pass; a fresh incremental review remains pending.
+The next incremental pass confirmed those fixes but found validation sharing the
+production lock and root receipt capture depending on transcript storage. Tests
+now use private filesystem/lock namespaces; the root receipt is captured in memory
+before any later user-stage failure. Both repairs and regressions pass. The actual public --prepare completes with
+80 tests, both bridge builds, native package inspection and byte-verified recovery.
+Fresh incremental review is the remaining source gate.
 No clean watermark is claimed yet.
 
 Automatic standards injection is a separate issue per Tommy. Explicitly loaded

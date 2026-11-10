@@ -283,12 +283,13 @@ trap 'rollback_user "$?"' ERR
 trap 'rollback_user 130' INT
 trap 'rollback_user 143' TERM
 if [[ $mode != --configs-only ]]; then
-  pkexec "$module/install" --system "$cache/candidate.json" "$cache/previous.json" "$module/target-bridges/build/dev" | tee "$user_backup/system.log"
-  root_backup=$(tail -n 1 -- "$user_backup/system.log")
+  system_output=$(pkexec "$module/install" --system "$cache/candidate.json" "$cache/previous.json" "$module/target-bridges/build/dev")
+  root_backup=${system_output##*$'\n'}
   [[ $root_backup =~ ^/var/lib/dotfiles-mouse/recovery\.[A-Za-z0-9]+$ ]] || {
-    printf 'Invalid invocation-specific recovery receipt; retained %s/system.log\n' "$user_backup" >&2
+    printf 'Invalid invocation-specific recovery receipt; inspect the retained system recovery directories.\n' >&2
     exit 1
   }
+  printf '%s\n' "$system_output"
   printf 'System recovery retained: %s\n' "$root_backup"
 fi
 if ! cmp -s "$module/overlay-session.conf" "$override"; then

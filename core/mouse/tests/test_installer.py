@@ -19,6 +19,7 @@ def isolated_home(tmp_path: Path) -> dict[str, str]:
     commands = tmp_path / "bin"
     commands.mkdir()
     log = tmp_path / "calls"
+    (tmp_path / "transaction-lock").mkdir(mode=0o700)
     for name in ("pkexec", "pacman", "systemctl", "middleclick-autoscroll"):
         script = commands / name
         script.write_text(
@@ -43,9 +44,43 @@ def isolated_home(tmp_path: Path) -> dict[str, str]:
     }
 
 
+def sandbox_command(env: dict[str, str], *command: str) -> list[str]:
+    bwrap = shutil.which("bwrap")
+    if bwrap is None:
+        pytest.skip("Installer isolation requires bubblewrap user namespaces")
+    fixture = Path(env["HOME"]).parent
+    repository = MODULE.parents[1]
+    return [
+        bwrap,
+        "--unshare-all",
+        "--ro-bind",
+        "/",
+        "/",
+        "--tmpfs",
+        "/run",
+        "--tmpfs",
+        "/tmp",
+        "--bind",
+        str(fixture),
+        str(fixture),
+        "--ro-bind",
+        str(repository),
+        str(repository),
+        "--bind",
+        str(fixture / "transaction-lock"),
+        "/tmp/dotfiles-mouse-install.lock",
+        "--dev",
+        "/dev",
+        "--proc",
+        "/proc",
+        "--",
+        *command,
+    ]
+
+
 def invoke(env: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [str(MODULE / "install"), *args],
+        sandbox_command(env, str(MODULE / "install"), *args),
         env=env,
         text=True,
         capture_output=True,
@@ -131,8 +166,7 @@ def test_unrelated_override_conflict_is_detected_before_mutation(
 def test_concurrent_installation_fails_before_mutation(
     isolated_home: dict[str, str],
 ) -> None:
-    lock = Path("/tmp/dotfiles-mouse-install.lock")
-    lock.mkdir(mode=0o700, exist_ok=True)
+    lock = Path(isolated_home["HOME"]).parent / "transaction-lock"
     fd = os.open(lock, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -143,3 +177,59 @@ def test_concurrent_installation_fails_before_mutation(
         assert not Path(isolated_home["CALL_LOG"]).exists()
     finally:
         os.close(fd)
+
+
+def test_root_receipt_survives_transcript_and_user_stage_failure(
+    isolated_home: dict[str, str], tmp_path: Path
+) -> None:
+    # Exercise the real controller with preparation/package/service boundaries
+    # substituted, so no root authentication or installed runtime is involved.
+    module = tmp_path / "checkout/core/mouse"
+    module.mkdir(parents=True)
+    shutil.copy2(MODULE / "install", module / "install")
+    shutil.copy2(MODULE / "overlay-session.conf", module / "overlay-session.conf")
+    shutil.copytree(MODULE / "apps", module / "apps")
+    check = module / "check"
+    check.write_text("#!/bin/bash\nexit 0\n")
+    check.chmod(0o755)
+    commands = Path(isolated_home["PATH"].split(":")[0])
+    scripts = {
+        "cmake": "exit 0\n",
+        "pkexec": (
+            'printf "%s\\n" "$*" >> "$CALL_LOG"\n'
+            "if [[ $2 == --system ]]; then\n"
+            "  echo /var/lib/dotfiles-mouse/recovery.OWNRECEIPT; fi\n"
+        ),
+        "systemctl": "exit 1\n",
+        "tee": "cat >/dev/null\nexit 74\n",
+        "python3": (
+            "if [[ $* == *--dry-run* ]]; then exit 0; fi\n"
+            "# Simulate exhausted user storage in the next configuration stage.\n"
+            "exit 77\n"
+        ),
+        "uv": (
+            "if [[ $* == *midscroll_routing.source* ]]; then exit 0; fi\n"
+            "shift 4\n"
+            f'exec "{sys.executable}" "$@"\n'
+        ),
+    }
+    for name, body in scripts.items():
+        script = commands / name
+        script.write_text("#!/bin/bash\n" + body)
+        script.chmod(0o755)
+    result = subprocess.run(
+        sandbox_command(isolated_home, str(module / "install")),
+        env=isolated_home,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 77, result.stderr
+    assert (
+        "--system-recover /var/lib/dotfiles-mouse/recovery.OWNRECEIPT"
+        in Path(isolated_home["CALL_LOG"]).read_text()
+    )
+    assert not (
+        Path(isolated_home["XDG_CONFIG_HOME"])
+        / "systemd/user/midscroll-overlay.service.d/pointer-routing.conf"
+    ).exists()
