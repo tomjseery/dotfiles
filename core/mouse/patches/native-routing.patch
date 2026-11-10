@@ -1,0 +1,432 @@
+diff --git a/midscroll-apply.py b/midscroll-apply.py
+index a22be16..e9c9d1d 100755
+--- a/midscroll-apply.py
++++ b/midscroll-apply.py
+@@ -35,7 +35,7 @@ MAX_SPECS = 32
+ MAX_SPEC_LEN = 128
+ MAX_SPECS_LEN = 1024
+ # Never settable from here, only preserved.
+-ROOT_ONLY_KEYS = ("ALLOW_KEYBOARDS",)
++ROOT_ONLY_KEYS = ("ALLOW_KEYBOARDS", "NATIVE_DEFAULT", "FALLBACK_APPS")
+ 
+ # Float tunables and whether they must be strictly positive (a zero dead
+ # zone is fine; a zero rate or multiplier would break the daemon).
+@@ -109,7 +109,7 @@ BLACKLIST = {BLACKLIST}
+ # prints all three for every device.
+ EXTRA_DEVICES = {EXTRA_DEVICES}
+ IGNORE_DEVICES = {IGNORE_DEVICES}
+-{ALLOW_KEYBOARDS}"""
++{ALLOW_KEYBOARDS}{ROUTING_POLICY}"""
+ 
+ # Appended only when it is already on: midscroll-apply never sets it.
+ KEYBOARDS_BLOCK = """
+@@ -174,6 +174,45 @@ def keyboards_enabled(path=CONFIG_PATH):
+     return False
+ 
+ 
++def routing_policy(path: str) -> str:
++    """Carry root-owned routing choices through unrelated GUI changes."""
++    try:
++        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
++    except FileNotFoundError:
++        return ""
++    except OSError as error:
++        die(f"cannot read routing policy: {error}")
++    with os.fdopen(fd, "r", encoding="utf-8", errors="replace") as existing:
++        status = os.fstat(existing.fileno())
++        if status.st_uid != 0 or status.st_mode & 0o022:
++            die("refusing to preserve routing policy from an untrusted file")
++        text = existing.read(65537)
++    if len(text) > 65536:
++        die("existing routing configuration is oversized")
++    values = {}
++    for line in text.splitlines():
++        line = line.split("#", 1)[0].strip()
++        if "=" in line:
++            key, value = (part.strip() for part in line.split("=", 1))
++            if key in ("NATIVE_DEFAULT", "FALLBACK_APPS"):
++                values[key] = value
++    lines = []
++    if "NATIVE_DEFAULT" in values:
++        try:
++            enabled = parse_bool(values["NATIVE_DEFAULT"])
++        except ValueError as error:
++            die(f"invalid existing native-default policy: {error}")
++        lines.append("NATIVE_DEFAULT = " + ("true" if enabled else "false"))
++    if "FALLBACK_APPS" in values:
++        apps = [app.strip() for app in values["FALLBACK_APPS"].split(",") if app.strip()]
++        if len(apps) > 32 or any(
++                len(app) > 128 or not re.fullmatch(r"[A-Za-z0-9_.-]+", app)
++                for app in apps):
++            die("invalid existing fallback application policy")
++        lines.append("FALLBACK_APPS = " + ", ".join(apps))
++    return "\n" + "\n".join(lines) + "\n" if lines else ""
++
++
+ def main(argv):
+     os.umask(0o077)
+     if len(argv) > MAX_ARGS:
+@@ -231,6 +270,7 @@ def main(argv):
+         IGNORE_DEVICES=values["IGNORE_DEVICES"],
+         # Carried through untouched: this program can't turn it on or off.
+         ALLOW_KEYBOARDS=KEYBOARDS_BLOCK if keyboards_enabled() else "",
++        ROUTING_POLICY=routing_policy(CONFIG_PATH),
+         **{k: values[k] for k in FLOATS},
+     )
+ 
+diff --git a/midscroll-overlay.py b/midscroll-overlay.py
+index 67ade43..e144482 100644
+--- a/midscroll-overlay.py
++++ b/midscroll-overlay.py
+@@ -39,6 +39,7 @@ import stat
+ import struct
+ import subprocess
+ import sys
++import argparse
+ import threading
+ import time
+ 
+@@ -595,6 +596,12 @@ def watch_socket(overlay):
+ 
+ 
+ def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--no-drawing", action="store_true")
++    args = parser.parse_args()
++    if args.no_drawing:
++        watch_socket(None)
++        return
+     logging.basicConfig(level=logging.INFO,
+                         format="%(levelname)s: %(message)s")
+     if not WAYLAND:
+diff --git a/midscroll.py b/midscroll.py
+--- a/midscroll.py
++++ b/midscroll.py
+@@ -11,6 +11,8 @@
+ import time
+ 
+ from evdev import InputDevice, UInput, ecodes as e, list_devices
++from midscroll_routing import Gesture, Routing
++from midscroll_routing.presentation import ACCEPTED, Presentation
+ 
+ VERSION = "1.15"
+ 
+@@ -29,6 +31,8 @@
+ MAX_DRAG_PX = 1200.0      # cap on effective drag distance (~screen height)
+ TICK_HZ = 90.0            # scroll event rate (higher = smoother)
+ NATURAL = False           # True inverts scroll direction
++NATIVE_DEFAULT = False      # native MMB unless a routing helper proves an opt-in
++FALLBACK_APPS = []           # exact case-insensitive app IDs, never substrings
+ TOGGLE_MODE = False       # True: click to start/stop instead of hold-and-drag
+ DESKTOP_SCROLL = False    # True: also autoscroll over the desktop and panels
+ GHOST_CURSOR = True       # True: helper draws a cursor at the dragged point
+@@ -88,7 +92,7 @@
+ 
+ FLOAT_KEYS = {"DEADZONE_PX", "TICK_HZ", "SPEED_MULT", "SPEED_EXP",
+               "MAX_PX_PER_SEC", "PX_PER_NOTCH", "MAX_DRAG_PX", "GHOST_SCALE"}
+-BOOL_KEYS = {"NATURAL", "TOGGLE_MODE", "DESKTOP_SCROLL", "GHOST_CURSOR",
++BOOL_KEYS = {"NATIVE_DEFAULT", "NATURAL", "TOGGLE_MODE", "DESKTOP_SCROLL", "GHOST_CURSOR",
+              "SNAP_CURSOR_ON_RELEASE", "ALLOW_KEYBOARDS"}
+ DEVICE_KEYS = {"EXTRA_DEVICES", "IGNORE_DEVICES"}
+ # Zero would divide by zero (TICK_HZ, PX_PER_NOTCH) or make the daemon
+@@ -232,6 +236,8 @@
+             except ValueError as err:
+                 log.error("config: %s = %r rejected: %s (keeping %s)",
+                           k, v, err, globals()[k])
++        elif k == "FALLBACK_APPS":
++            globals()["FALLBACK_APPS"] = parse_blacklist(v)
+         elif k == "BLACKLIST":
+             globals()["BLACKLIST"] = parse_blacklist(v)
+         elif k in DEVICE_KEYS:
+@@ -277,7 +283,8 @@
+     """
+     if pid is None:
+         return False
+-    names = ("midscroll-overlay", "midscroll-overlay.py")
++    names = ("midscroll-overlay", "midscroll-overlay.py",
++             "midscroll-router", "midscroll-router.py", "kwin_wayland", "kwin_x11")
+     try:
+         with open(f"/proc/{pid}/cmdline", "rb") as f:
+             argv = [a.decode("utf-8") for a in f.read().split(b"\0") if a]
+@@ -401,6 +408,13 @@
+         self.last_pos = None
+         self.active_uids = frozenset()
+         self.ghost_visible = None
++        self.control_pids = {}
++        self.presentation = Presentation(self._can_present)
++        self.cursor_messages = {}
++        self.routing = Routing(
++            frozenset(FALLBACK_APPS), e.BTN_MIDDLE,
++            lambda writer: writer in self.writers
++            and _uid_is_active(self.writers[writer]))
+ 
+     async def start(self):
+         try:
+@@ -430,10 +444,12 @@
+         peer_socket = writer.get_extra_info("socket")
+         uid = _peer_uid(peer_socket)
+         pid = _peer_pid(peer_socket)
+-        if (uid is None or not _uid_has_seat(uid)
+-                or not _peer_is_overlay(pid)):
++        if uid is None or not _uid_has_seat(uid):
+             log.debug("rejected state socket peer uid=%s pid=%s", uid, pid)
+             writer.close()
++            return
++        if not _peer_is_overlay(pid):
++            await self._presenter(reader, writer, uid)
+             return
+         if self._too_many(uid):
+             # Every connection costs a broadcast slot at GHOST_HZ, so a
+@@ -443,33 +459,83 @@
+             return
+         client = FocusClient(uid)
+         self.writers[writer] = uid
++        self.control_pids[writer] = pid
+         self.active_uids = frozenset(
+             u for u in set(self.writers.values()) if _uid_is_active(u))
+         try:
+-            writer.write(self.msg)
++            writer.write(self.cursor_messages.get(uid, b"0\n"))
+             while True:
+                 line = await reader.readline()
+                 if not line:
+                     break
+-                text = line.decode("utf-8", "replace").strip()
+-                if text.startswith("focus "):
++                text = line.decode("utf-8", "replace").rstrip("\r\n")
++                if NATIVE_DEFAULT and text.startswith("renderer "):
++                    if writer not in self.routing.routers or not self.routing.eligible(writer):
++                        raise ValueError("Unregistered renderer reporter")
++                    self.presentation.report_renderer(writer, text)
++                    continue
++                if NATIVE_DEFAULT and self.routing.receive(writer, text):
++                    continue
++                if not NATIVE_DEFAULT and text.startswith("focus "):
+                     self.focus.update(client, text[len("focus "):])
+         except (OSError, ConnectionError, ValueError):
+             pass  # ValueError: line over SOCK_LIMIT, drop the peer
+         finally:
+             self.writers.pop(writer, None)
++            self.control_pids.pop(writer, None)
++            self.presentation.disconnect(writer)
++            self.routing.disconnect(writer)
+             self.focus.remove(client)
+             writer.close()
+ 
++    def _can_present(self, uid):
++        peers = self.routing.authorities()
++        if not _uid_is_active(uid) or len(peers) != 1:
++            return False
++        router = peers[0]
++        if self.writers.get(router) != uid:
++            return False
++        pid = self.presentation.renderer_pid(router)
++        return pid is not None and any(
++            peer not in self.routing.routers
++            and peer_pid != self.control_pids.get(router)
++            and peer_pid == pid and self.writers.get(peer) == uid
++            for peer, peer_pid in self.control_pids.items())
++
++    async def _presenter(self, reader, writer, uid):
++        # Presentation-only connections can never enter routing/focus handlers.
++        if not NATIVE_DEFAULT or not self.presentation.admit(writer, uid):
++            writer.close()
++            return
++        try:
++            while True:
++                line = await asyncio.wait_for(reader.readline(), 0.5)
++                if not line:
++                    break
++                self.presentation.receive(writer, line.decode("utf-8").rstrip("\r\n"))
++                if writer.transport.get_write_buffer_size() > 4096:
++                    break
++                writer.write(ACCEPTED)
++        except (OSError, ValueError, TimeoutError) as error:
++            log.debug("Presentation peer ended: %s", error)
++        finally:
++            self.presentation.disconnect(writer)
++            writer.close()
++
+     def _drop(self, writer):
+         self.writers.pop(writer, None)
++        self.control_pids.pop(writer, None)
++        self.presentation.disconnect(writer)
++        self.routing.disconnect(writer)
+         try:
+             writer.close()
+         except (OSError, ConnectionError):
+             pass
+ 
+-    def _broadcast(self, msg, active_only=False):
++    def _broadcast(self, msg, active_only=False, recipient=None):
+         for w, uid in list(self.writers.items()):
++            if recipient is not None and uid != recipient:
++                continue
+             if active_only and uid not in self.active_uids:
+                 continue
+             try:
+@@ -489,24 +555,26 @@
+ 
+     def set(self, active):
+         msg = b"1\n" if active else b"0\n"
+-        if msg == self.msg:
+-            return
+-        self.msg = msg
+-        self.last_pos = None  # each drag re-sends its position
+-        if active:
+-            # Re-checked per drag: sessions switch while we run.
+-            self.active_uids = frozenset(
+-                u for u in set(self.writers.values()) if _uid_is_active(u))
+-        self._broadcast(msg)
++        if msg != self.msg:
++            self.last_pos = None
++        self.msg = msg  # Physical fallback state alone owns ghost/position output.
++        uids = set(self.writers.values())
++        self.active_uids = frozenset(uid for uid in uids if _uid_is_active(uid))
++        for uid in uids:
++            visible = ((active and uid in self.active_uids)
++                       or self.presentation.active(uid))
++            cursor = b"1\n" if visible else b"0\n"
++            if self.cursor_messages.get(uid, b"0\n") != cursor:
++                self._broadcast(cursor, recipient=uid)
++            self.cursor_messages[uid] = cursor
++        for uid in self.cursor_messages.keys() - uids:
++            del self.cursor_messages[uid]
+ 
+     def heartbeat(self):
+-        """Re-send "1" during a drag so the helper's watchdog stays quiet.
+-
+-        set() and pos() only speak on change, so a drag held still for a few
+-        seconds would otherwise look like a dead daemon and be hidden.
+-        """
+-        if self.msg == b"1\n":
+-            self._broadcast(self.msg)
++        """Keep both native and fallback presentation viewers alive."""
++        for uid, msg in list(self.cursor_messages.items()):
++            if msg == b"1\n":
++                self._broadcast(msg, recipient=uid)
+ 
+     def pos(self, dx, dy):
+         """Offset of the ghost cursor from the anchor, in screen pixels."""
+@@ -535,6 +603,7 @@
+ 
+     def __init__(self, ui):
+         self.ui = ui
++        self.gesture = Gesture(self)
+         self.reset()
+ 
+     def reset(self):
+@@ -652,8 +721,12 @@
+         now = time.monotonic()
+         dt = min(now - last, MAX_TICK_DT)  # cap so a stall can't lurch
+         last = now
++        if NATIVE_DEFAULT:
++            notifier.routing.on_clock()
+         for st in list(states.values()):
+             try:
++                if NATIVE_DEFAULT and not notifier.routing.can_scroll(st.gesture):
++                    continue
+                 tick(st, dt, focus)
+             except Exception as err:  # one bad tick must not kill the loop
+                 log.error("tick error: %r", err)
+@@ -679,7 +752,7 @@
+ 
+ 
+ def tick(st, dt, focus):
+-    if focus.blocked:
++    if not NATIVE_DEFAULT and focus.blocked:
+         # A blacklisted app is focused. Never scroll, and stop anything
+         # already running (focus changed mid-scroll) so it can't keep
+         # scrolling under the blacklisted app.
+@@ -875,11 +948,19 @@
+     if mirror_path:
+         our_paths.add(mirror_path)
+     st = states[path] = State(ui)
+-    held = set()  # non-middle buttons we're currently holding down virtually
++    held = set()  # buttons currently held virtually
++    unresolved_motion = False
+     log.info("grabbed %s (%s)", dev.name, path)
+     try:
+         async for ev in dev.async_read_loop():
+-            if TOGGLE_MODE and ev.type == e.EV_KEY and _is_button(ev.code):
++            if ev.type == e.EV_REL and ev.code in (e.REL_X, e.REL_Y):
++                unresolved_motion = True
++            if NATIVE_DEFAULT and ev.type == e.EV_KEY and _is_button(ev.code):
++                if await notifier.routing.button(
++                        st.gesture, ev.code, ev.value,
++                        resolved_motion=not unresolved_motion):
++                    continue
++            elif TOGGLE_MODE and ev.type == e.EV_KEY and _is_button(ev.code):
+                 if _toggle_key(ev, st, ui, focus):
+                     continue
+                 # An unrelated button while idle: fall through and forward it.
+@@ -929,8 +1010,12 @@
+                                      st.dy * GHOST_SCALE)
+                     continue
+             if ev.type == e.EV_SYN:
++                if ev.code == e.SYN_REPORT:
++                    unresolved_motion = False
+                 if ev.code == e.SYN_DROPPED:
+                     _resync(ui, dev, held, st)
++                    if NATIVE_DEFAULT:
++                        notifier.routing.resync(st.gesture, held)
+                 elif st.release_pending:
+                     was_click = _finish_release(st, ui, notifier)
+                     if was_click:
+@@ -952,6 +1037,8 @@
+     finally:
+         # Don't leave a button stuck down on the virtual device if the real
+         # one vanished mid-press.
++        if NATIVE_DEFAULT:
++            notifier.routing.release_device(st.gesture)
+         if held or st.passthrough:
+             for code in held:
+                 ui.write(e.EV_KEY, code, 0)
+@@ -1118,6 +1205,13 @@
+             dev.close()
+ 
+ 
++async def routing_refresh(notifier):
++    while True:
++        await asyncio.sleep(0.1)
++        if NATIVE_DEFAULT:
++            await notifier.routing.refresh()
++
++
+ async def main():
+     focus = FocusFilter()
+     notifier = Notifier(focus)
+@@ -1130,6 +1224,7 @@
+         log.warning("uinput phys marker did not round-trip; relying on "
+                     "device-path tracking to skip our own mirrors")
+     tick_task = asyncio.create_task(ticker(states, notifier, focus))
++    refresh_task = asyncio.create_task(routing_refresh(notifier))
+     log.info("running")
+     try:
+         while True:
+@@ -1162,6 +1257,7 @@
+                     pump(path, dev, states, tasks, focus, our_paths, notifier))
+             await asyncio.sleep(2)
+     finally:
++        refresh_task.cancel()
+         tick_task.cancel()
+         for t in list(tasks.values()):
+             t.cancel()
+@@ -1203,6 +1299,8 @@
+                "override it for this run.")
+     p.add_argument("--version", action="version",
+                    version=f"midscroll {VERSION}")
++    p.add_argument("--native-default", action="store_true",
++                   help="preserve native clicks unless an explicit target grants fallback")
+     p.add_argument("--config", default=CONFIG_PATH, metavar="PATH",
+                    help=f"config file to read (default: {CONFIG_PATH})")
+     p.add_argument("--debug", action="store_true",
+@@ -1257,6 +1355,8 @@
+         level=logging.DEBUG if args.debug else logging.INFO,
+         format="%(levelname)s: %(message)s")
+     load_config(args.config)
++    if args.native_default:
++        globals()["NATIVE_DEFAULT"] = True
+     for key in FLOAT_KEYS:
+         val = getattr(args, key.lower())
+         if val is not None:

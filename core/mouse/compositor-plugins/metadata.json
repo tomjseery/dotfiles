@@ -1,0 +1,9 @@
+{
+    "KPlugin": {
+        "Category": "Accessibility",
+        "Description": "Expose a read-only pointer-focus snapshot for native-default mouse routing",
+        "EnabledByDefault": false,
+        "License": "GPL-2.0-or-later",
+        "Name": "Mouse Target"
+    }
+}
