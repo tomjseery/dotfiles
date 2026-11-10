@@ -114,7 +114,7 @@ KDE’s official Colors documentation confirms native accent extraction from wal
   switching defaults; do not pick a package blindly or remove either copy.
 - `xdg-settings get default-web-browser` returns `google-chrome.desktop`.
 - Live KDE General/BrowserApplication and
-  `core/settings/kconfig/kdeglobals` both select `google-chrome.desktop`.
+  `core/config/kde/settings/kconfig/kdeglobals` both select `google-chrome.desktop`.
 - KWin uses `org.kde.klassy`; controls are on the right with
   `ButtonsOnRight=IAX` and an empty left side. This is the existing decoration
   owner to retain, not a reason to replace the desktop theme.
@@ -128,7 +128,7 @@ KDE’s official Colors documentation confirms native accent extraction from wal
    preserve bookmarks, profiles, extensions, accounts and sessions.
 2. Persist the generic browser preference through the established dotfiles
    browser/KConfig/MIME owners. Add Firefox application integration in
-   `core/app-configs/firefox/` if needed; avoid duplicating the same preference
+   `core/config/apps/firefox/` if needed; avoid duplicating the same preference
    in several managed layers. Do not commit profile databases or credentials.
 3. Keep one system decoration style in KWin. Prefer Firefox's supported native
    Title Bar integration so KWin draws the buttons. This normally adds a

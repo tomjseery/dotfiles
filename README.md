@@ -28,10 +28,12 @@ it can be installed independently of the personal core and KDE modules.
 core/
   mouse/                 MMB scrolling, app routing, KWin cursor effect
   agents/keep-awake/      agent activity and automatic idle-sleep prevention
-  app-configs/           Chromium and Thunderbird behaviour
-  configs/               shell, keyboard, shortcuts, apps and helper commands
-  settings/              personal keys from mixed KDE and app configuration
-  system-configs/        machine policy
+  config/
+    apps/<app>/          app configuration and merged behaviour settings
+    shell/               interactive shell configuration
+    kde/                 keyboard, shortcuts and personal KDE settings
+    system/              machine policy
+  commands/              helper executables
   packages/              core AUR application list
 desktops/hyprland/       shared Hyprland configuration, source pins and patches
 desktops/kde/            KDE login/session setup
@@ -155,9 +157,20 @@ window matching ambiguous; changing grouping settings does not resolve that.
 
 ## Configuration packages
 
-`core/configs/` contains independently usable Stow packages: `shell`, `apps`,
-`bin`, `kitty`, `vscode` and `kde`. Use the shell
-installers to include merged settings as well as links. Core includes the
+`core/config/apps/<app>/` groups each application's configuration. Its `files/`
+directory is a Stow package; `settings/` contains behaviour fragments merged
+into files that also contain appearance or unrelated preferences. Shell and KDE
+configuration use the same layout under `core/config/shell/` and
+`core/config/kde/`. Machine policy lives under `core/config/system/`; helper
+executables live under `core/commands/`.
+
+Use the shell installers to include merged settings as well as links. They
+relocate links owned by the former `core/configs/` packages after checking all
+selected packages for conflicts. Dry runs report those relocations without
+changing links, and unrelated files or links are refused. The package mapping
+is recorded in `core/config/stow.tsv`.
+
+Core includes the
 input and application behaviour; `themes/current/files/` contains the visual
 Stow package. Flatpak Konsole settings use `~/.var/app/org.kde.konsole/config`.
 
@@ -168,6 +181,7 @@ prevents automatic idle sleep during active turns while allowing manual Sleep.
 
 ```sh
 python3 -m unittest discover -s tests -v
+uv run --no-project --with pytest pytest tests/test_config_relocation.py
 ```
 
 Tests install into temporary home folders and do not touch packages or services.
@@ -193,7 +207,7 @@ password must also match the login password for this to actually unlock it
 (set that once in KWallet's own settings; it isn't something a dotfile can
 carry, per the credentials exclusion below).
 
-`core/system-configs/chrome-policy` installs a machine-wide Chrome enterprise
+`core/config/system/chromium` installs a machine-wide Chrome enterprise
 policy (`QuicAllowed: false`) disabling QUIC/HTTP-3. QUIC runs over UDP, and
 the Mullvad WireGuard tunnel this machine routes through drops/fragments QUIC
 badly enough that Chrome hangs indefinitely retrying it (most visibly on
@@ -201,7 +215,7 @@ YouTube, whose video CDN opens a fresh QUIC connection per edge server) rather
 than falling back to TCP promptly. Disabling it machine-wide costs a small
 amount of latency on QUIC-capable sites in exchange for not hanging.
 
-`core/app-configs/chromium/install-user` also writes `--password-store=basic` to
+`core/config/apps/chromium/install-user` also writes `--password-store=basic` to
 `~/.config/chrome-flags.conf`, so Chrome manages its own credential storage
 instead of depending on the desktop keyring (KWallet) — a locked or
 misconfigured wallet must never be able to hang the browser.

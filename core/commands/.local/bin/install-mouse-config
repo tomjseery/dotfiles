@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
 script_path=$(readlink -f -- "${BASH_SOURCE[0]}")
-core_root=$(cd -- "$(dirname -- "$script_path")/../../../.." && pwd)
+core_root=$(cd -- "$(dirname -- "$script_path")/../../.." && pwd)
 exec "$core_root/mouse/install" "$@"
