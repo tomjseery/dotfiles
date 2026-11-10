@@ -33,7 +33,7 @@ Generated results are ignored under the harness's artifacts directory.
 ## Reviews
 
 Native Codex and independent security/concurrency reviews completed; all eleven
-findings are resolved. The canonical Git-private work order preserves frozen
+technical findings are resolved. The canonical Git-private work order preserves frozen
 passes, original findings and dispositions. Resolve it with Engineering's
 `workflow_ops.py --root CHECKOUT --workflow-run-id mouse-native review-path`.
 The final documentation closeout uses that same work order; no second ledger or
