@@ -38,8 +38,8 @@ recover_system() {
 }
 
 install_system() {
-  [[ $EUID -eq 0 && $# -eq 3 ]] || return 2
-  local candidate_manifest=$1 previous_manifest=$2 bridge_dir=$3
+  [[ $EUID -eq 0 && $# -eq 4 ]] || return 2
+  local candidate_manifest=$1 previous_manifest=$2 bridge_dir=$3 cursor_source=$4
   local candidate previous expected backup source target temporary='' enabled_state
   enabled_state=$(systemctl is-enabled midscroll.service 2>/dev/null || true)
   case $enabled_state in enabled | disabled | static) ;; *)
@@ -56,7 +56,7 @@ install_system() {
   [[ $(pacman -Qp "$previous") == "$(pacman -Q midscroll)" ]] || return 1
   [[ -f $bridge_dir/mousetarget.so && -f $bridge_dir/mouse_target_hyprland.so ]] || return 1
   /usr/bin/python3 -I "$module/src/midscroll_routing/installation.py" --root / native-defaults --backup /var/lib/dotfiles-mouse/preflight-unused.json --dry-run
-  /usr/bin/python3 -I "$module/src/midscroll_routing/installation.py" --root / native-cursor --source "$module/apps/gecko/native-cursor.cfg" --backup /var/lib/dotfiles-mouse/preflight-cursor-unused.json --dry-run
+  /usr/bin/python3 -I "$module/src/midscroll_routing/installation.py" --root / native-cursor --source "$cursor_source" --backup /var/lib/dotfiles-mouse/preflight-cursor-unused.json --dry-run
   install -d -m 0755 /var/lib/dotfiles-mouse
   backup=$(mktemp -d /var/lib/dotfiles-mouse/recovery.XXXXXXXX)
   install -m 0644 "$previous" "$backup/previous.pkg.tar.zst"
@@ -87,7 +87,7 @@ install_system() {
   [[ ! -f $backup/previous.conf ]] || prior=(--previous "$backup/previous.conf")
   /usr/bin/python3 -I -m midscroll_routing.installation --root / configure-system "${prior[@]}"
   /usr/bin/python3 -I -m midscroll_routing.installation --root / native-defaults --backup "$backup/native-apps.json"
-  /usr/bin/python3 -I -m midscroll_routing.installation --root / native-cursor --source "$module/apps/gecko/native-cursor.cfg" --backup "$backup/native-cursor.json"
+  /usr/bin/python3 -I -m midscroll_routing.installation --root / native-cursor --source "$cursor_source" --backup "$backup/native-cursor.json"
   # Keep this profile-owned guard outside pacman's file list: a stock package
   # replacement must retain --native-default and fail before grabbing input.
   install -D -m 0644 "$module/system/native-default.conf" /etc/systemd/system/midscroll.service.d/native-default.conf
@@ -175,11 +175,17 @@ if [[ $mode == --recover ]]; then
   pkexec "$module/install" --system-recover "$recovery_target"
   exit
 fi
+render_cursor() {
+  cursor_source=${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/native-cursor.cfg
+  uv run --directory "$module" python -m midscroll_routing.cursor \
+    --template "$module/apps/gecko/native-cursor.cfg" --output "$cursor_source"
+}
 if [[ $mode == --cursor-only ]]; then
+  render_cursor
   root_backup=$(cat /var/lib/dotfiles-mouse/last-recovery)
   [[ $root_backup =~ ^/var/lib/dotfiles-mouse/recovery\.[A-Za-z0-9]+$ ]] || exit 1
   pkexec /usr/bin/python3 -I "$module/src/midscroll_routing/installation.py" --root / native-cursor \
-    --source "$module/apps/gecko/native-cursor.cfg" --backup "$root_backup/native-cursor.json"
+    --source "$cursor_source" --backup "$root_backup/native-cursor.json"
   printf 'Native cursor configuration applied; reload the browser to activate it.\n'
   exit
 fi
@@ -217,6 +223,7 @@ if [[ $mode != --configs-only ]]; then
   fi
   cmake -S "$module/target-bridges" -B "$module/target-bridges/build/dev" -G Ninja "${cmake_args[@]}"
   cmake --build "$module/target-bridges/build/dev" --parallel 2
+  render_cursor
   if [[ $mode == --prepare ]]; then
     printf 'Prepared candidate: %s\nRecovery: %s\n' "$cache/candidate.json" "$cache/previous.json"
     exit 0
@@ -296,7 +303,7 @@ trap 'rollback_user "$?"' ERR
 trap 'rollback_user 130' INT
 trap 'rollback_user 143' TERM
 if [[ $mode != --configs-only ]]; then
-  system_output=$(pkexec "$module/install" --system "$cache/candidate.json" "$cache/previous.json" "$module/target-bridges/build/dev")
+  system_output=$(pkexec "$module/install" --system "$cache/candidate.json" "$cache/previous.json" "$module/target-bridges/build/dev" "$cursor_source")
   root_backup=${system_output##*$'\n'}
   [[ $root_backup =~ ^/var/lib/dotfiles-mouse/recovery\.[A-Za-z0-9]+$ ]] || {
     printf 'Invalid invocation-specific recovery receipt; inspect the retained system recovery directories.\n' >&2

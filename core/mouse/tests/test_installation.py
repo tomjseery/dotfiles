@@ -475,3 +475,157 @@ def test_native_cursor_automatically_restores_all_files_after_failed_write(
     assert backup.exists()
     installation.restore(tmp_path, backup)
     assert not cfg.exists()
+
+
+def test_native_cursor_can_retry_same_backup_after_failed_initial_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime(tmp_path)
+    source = cursor_source(tmp_path)
+    backup = tmp_path / "cursor-backup.json"
+    target = (
+        tmp_path / "usr/lib/future-browser/defaults/pref/zz-dotfiles-mouse-cursor.js"
+    )
+    real_replace = Path.replace
+
+    def fail_bootstrap(self: Path, destination: Path) -> Path:
+        if destination == target:
+            raise OSError("first attempt failed")
+        return real_replace(self, destination)
+
+    monkeypatch.setattr(Path, "replace", fail_bootstrap)
+    with pytest.raises(OSError, match="first attempt failed"):
+        installation.configure_native_cursor(tmp_path, source, backup)
+    original = backup.read_bytes()
+    assert not list(tmp_path.glob(".cursor-backup.json.attempt-*"))
+    monkeypatch.setattr(Path, "replace", real_replace)
+    installation.configure_native_cursor(tmp_path, source, backup)
+    assert target.read_bytes() == installation.NATIVE_CURSOR_BOOTSTRAP
+    assert backup.read_bytes() == original
+    assert not list(tmp_path.glob(".cursor-backup.json.attempt-*"))
+
+
+def test_native_cursor_failed_update_restores_last_success_and_keeps_master_original(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime(tmp_path, "a-browser")
+    runtime(tmp_path, "z-browser")
+    source = cursor_source(tmp_path)
+    backup = tmp_path / "cursor-backup.json"
+    installation.configure_native_cursor(tmp_path, source, backup)
+    original, last_success = backup.read_bytes(), source.read_bytes()
+    source.write_bytes(installation.NATIVE_CURSOR_HEADER + b"\n// updated source\n")
+    target = tmp_path / "usr/lib/z-browser/dotfiles-mouse.cfg"
+    real_replace = Path.replace
+
+    def fail_last_engine(self: Path, destination: Path) -> Path:
+        if destination == target:
+            raise OSError("update failed")
+        return real_replace(self, destination)
+
+    monkeypatch.setattr(Path, "replace", fail_last_engine)
+    with pytest.raises(OSError, match="update failed"):
+        installation.configure_native_cursor(tmp_path, source, backup)
+    for engine in ["a-browser", "z-browser"]:
+        assert (
+            tmp_path / "usr/lib" / engine / "dotfiles-mouse.cfg"
+        ).read_bytes() == last_success
+    assert backup.read_bytes() == original
+    assert not list(tmp_path.glob(".cursor-backup.json.attempt-*"))
+    monkeypatch.setattr(Path, "replace", real_replace)
+    installation.configure_native_cursor(tmp_path, source, backup)
+    assert backup.read_bytes() == original
+    assert target.read_bytes() == source.read_bytes()
+    installation.restore(tmp_path, backup)
+    assert not target.exists()
+
+
+def test_native_cursor_added_engine_extends_earliest_master_without_overwrite(
+    tmp_path: Path,
+) -> None:
+    runtime(tmp_path, "a-browser")
+    source = cursor_source(tmp_path)
+    backup = tmp_path / "cursor-backup.json"
+    installation.configure_native_cursor(tmp_path, source, backup)
+    original = json.loads(backup.read_text(encoding="utf-8"))
+    first = tmp_path / "usr/lib/a-browser/dotfiles-mouse.cfg"
+    before = first.stat().st_mtime_ns
+    runtime(tmp_path, "new-engine")
+    added = tmp_path / "usr/lib/new-engine/dotfiles-mouse.cfg"
+    previous = (
+        installation.NATIVE_CURSOR_HEADER + b"\n// previous independent install\n"
+    )
+    added.write_bytes(previous)
+    added.chmod(0o600)
+    installation.configure_native_cursor(tmp_path, source, backup)
+    extended = json.loads(backup.read_text(encoding="utf-8"))
+    assert len(extended) == 4
+    assert all(extended[key] == value for key, value in original.items())
+    assert first.stat().st_mtime_ns == before
+    installation.restore(tmp_path, backup)
+    assert not first.exists()
+    assert added.read_bytes() == previous
+    assert stat.S_IMODE(added.stat().st_mode) == 0o600
+
+
+def test_native_cursor_failed_master_extension_does_not_mutate_engine_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime(tmp_path, "a-browser")
+    source = cursor_source(tmp_path)
+    backup = tmp_path / "cursor-backup.json"
+    installation.configure_native_cursor(tmp_path, source, backup)
+    original = backup.read_bytes()
+    first = tmp_path / "usr/lib/a-browser/dotfiles-mouse.cfg"
+    before = first.read_bytes(), first.stat().st_mtime_ns
+    runtime(tmp_path, "new-engine")
+    real_replace = Path.replace
+
+    def fail_master(self: Path, destination: Path) -> Path:
+        if destination == backup:
+            raise OSError("master extension failed")
+        return real_replace(self, destination)
+
+    monkeypatch.setattr(Path, "replace", fail_master)
+    with pytest.raises(OSError, match="master extension failed"):
+        installation.configure_native_cursor(tmp_path, source, backup)
+    assert backup.read_bytes() == original
+    assert (first.read_bytes(), first.stat().st_mtime_ns) == before
+    assert not (tmp_path / "usr/lib/new-engine/dotfiles-mouse.cfg").exists()
+
+
+def test_native_cursor_retains_secure_attempt_snapshot_when_rollback_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime(tmp_path, "a-browser")
+    runtime(tmp_path, "z-browser")
+    source = cursor_source(tmp_path)
+    backup = tmp_path / "cursor-backup.json"
+    installation.configure_native_cursor(tmp_path, source, backup)
+    last_success = source.read_bytes()
+    source.write_bytes(installation.NATIVE_CURSOR_HEADER + b"\n// updated source\n")
+    first = tmp_path / "usr/lib/a-browser/dotfiles-mouse.cfg"
+    last = tmp_path / "usr/lib/z-browser/dotfiles-mouse.cfg"
+    real_replace = Path.replace
+    first_writes = 0
+
+    def fail_apply_and_rollback(self: Path, destination: Path) -> Path:
+        nonlocal first_writes
+        if destination == last:
+            raise OSError("apply failed")
+        if destination == first:
+            first_writes += 1
+            if first_writes == 2:
+                raise OSError("rollback failed")
+        return real_replace(self, destination)
+
+    monkeypatch.setattr(Path, "replace", fail_apply_and_rollback)
+    with pytest.raises(OSError, match="previous files are saved at") as error:
+        installation.configure_native_cursor(tmp_path, source, backup)
+    attempts = list(tmp_path.glob(".cursor-backup.json.attempt-*"))
+    assert len(attempts) == 1
+    assert str(attempts[0]) in str(error.value)
+    assert stat.S_IMODE(attempts[0].stat().st_mode) == 0o600
+    monkeypatch.setattr(Path, "replace", real_replace)
+    installation.restore(tmp_path, attempts[0])
+    assert first.read_bytes() == last.read_bytes() == last_success
