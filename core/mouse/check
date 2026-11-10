@@ -3,9 +3,10 @@ set -euo pipefail
 module=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 cd -- "$module"
 uv sync --locked
-uv run ruff format --check src tests
-uv run ruff check src tests
+uv run ruff format --check src tests target-bridges/tests
+uv run ruff check src tests target-bridges/tests
 uv run mypy
+uv run mypy target-bridges/tests/run.py target-bridges/tests/probe.py
 prepared=$(uv run python -m midscroll_routing.source --module "$module" \
   --cache "${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/mouse-builds")
 MIDSCROLL_PREPARED_SOURCE="$prepared" uv run pytest

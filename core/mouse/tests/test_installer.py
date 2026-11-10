@@ -1,5 +1,6 @@
 """Run public shell entry points against disposable homes and command boundaries."""
 
+import fcntl
 import os
 import shutil
 import subprocess
@@ -125,3 +126,20 @@ def test_unrelated_override_conflict_is_detected_before_mutation(
     assert not (config / "kwinrc").exists()
     assert not Path(isolated_home["XDG_STATE_HOME"]).exists()
     assert not Path(isolated_home["CALL_LOG"]).exists()
+
+
+def test_concurrent_installation_fails_before_mutation(
+    isolated_home: dict[str, str],
+) -> None:
+    lock = Path("/tmp/dotfiles-mouse-install.lock")
+    lock.mkdir(mode=0o700, exist_ok=True)
+    fd = os.open(lock, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        result = invoke(isolated_home, "--configs-only")
+        assert result.returncode != 0
+        assert "in progress" in result.stderr
+        assert not list(Path(isolated_home["HOME"]).iterdir())
+        assert not Path(isolated_home["CALL_LOG"]).exists()
+    finally:
+        os.close(fd)

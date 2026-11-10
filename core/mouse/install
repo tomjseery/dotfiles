@@ -115,9 +115,14 @@ if [[ ${1-} == --system ]]; then
   install_system "$@"
   exit
 fi
-if [[ ${1-} == --recover && $# -eq 2 ]]; then
+if [[ ${1-} == --system-recover && $# -eq 2 ]]; then
   recover_system "$2"
   exit
+fi
+recovery_target=
+if [[ ${1-} == --recover && $# -eq 2 ]]; then
+  recovery_target=$2
+  set -- --recover
 fi
 if [[ $# -gt 1 ]]; then
   printf 'usage: %s [--dry-run|--prepare|--configs-only]\n' "$0" >&2
@@ -131,7 +136,7 @@ case $mode in
     'Would install native-default routing; native bridges activate on the next desktop session.'
   exit 0
   ;;
-'' | --prepare | --configs-only) ;;
+'' | --prepare | --configs-only | --recover) ;;
 *)
   printf 'Unknown option: %s\n' "$mode" >&2
   exit 2
@@ -141,6 +146,30 @@ esac
   printf 'Run the public installer as the desktop user.\n' >&2
   exit 2
 }
+# One global, stable inode spans preparation, root and user mutation/recovery.
+# /tmp's sticky bit and the owner-only directory prevent another account from
+# replacing the lock. A different owner fails safely before any configuration.
+lock_directory=/tmp/dotfiles-mouse-install.lock
+if ! mkdir -m 0700 -- "$lock_directory" 2>/dev/null; then
+  [[ -d $lock_directory && ! -L $lock_directory ]] || exit 1
+fi
+[[ ! -L $lock_directory && $(stat -c %u -- "$lock_directory") == "$EUID" && $(stat -c %a -- "$lock_directory") == 700 ]] || {
+  printf 'Mouse installation lock belongs to another account or is unsafe.\n' >&2
+  exit 1
+}
+exec {transaction_lock}<"$lock_directory"
+flock --nonblock "$transaction_lock" || {
+  printf 'Another mouse installation or recovery is in progress.\n' >&2
+  exit 1
+}
+if [[ $mode == --recover ]]; then
+  [[ $recovery_target =~ ^/var/lib/dotfiles-mouse/recovery\.[A-Za-z0-9]+$ ]] || {
+    printf 'Specify the recorded root recovery directory.\n' >&2
+    exit 2
+  }
+  pkexec "$module/install" --system-recover "$recovery_target"
+  exit
+fi
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/mouse-builds
 config=${XDG_CONFIG_HOME:-$HOME/.config}
 [[ $config == "$HOME/.config" ]] || {
@@ -236,7 +265,7 @@ rollback_user() {
     printf 'User recovery failed; retained %s\n' "$user_backup" >&2
   fi
   if [[ -n $root_backup ]]; then
-    if ! pkexec "$module/install" --recover "$root_backup"; then
+    if ! pkexec "$module/install" --system-recover "$root_backup"; then
       printf 'System recovery needs approval; retained %s\n' "$root_backup" >&2
     fi
   fi
@@ -254,8 +283,12 @@ trap 'rollback_user "$?"' ERR
 trap 'rollback_user 130' INT
 trap 'rollback_user 143' TERM
 if [[ $mode != --configs-only ]]; then
-  pkexec "$module/install" --system "$cache/candidate.json" "$cache/previous.json" "$module/target-bridges/build/dev"
-  root_backup=$(cat /var/lib/dotfiles-mouse/last-recovery)
+  pkexec "$module/install" --system "$cache/candidate.json" "$cache/previous.json" "$module/target-bridges/build/dev" | tee "$user_backup/system.log"
+  root_backup=$(tail -n 1 -- "$user_backup/system.log")
+  [[ $root_backup =~ ^/var/lib/dotfiles-mouse/recovery\.[A-Za-z0-9]+$ ]] || {
+    printf 'Invalid invocation-specific recovery receipt; retained %s/system.log\n' "$user_backup" >&2
+    exit 1
+  }
   printf 'System recovery retained: %s\n' "$root_backup"
 fi
 if ! cmp -s "$module/overlay-session.conf" "$override"; then

@@ -20,15 +20,15 @@ Both native bridges passed actual contained compositor tests: target queries,
 observation barriers, same-class root windows, A→B→A invalidation without querying
 B, empty-area rejection and cleanup. KWin used a private virtual backend;
 Hyprland nested inside it in a user namespace without physical input devices or
-host seat/session sockets. A reproducible harness is being promoted beside the
-bridges. This does not establish composed helper/daemon or physical acceptance.
+host seat/session sockets. A reproducible harness is committed beside the
+bridges, with retained passing results for both backends. This does not establish composed helper/daemon or physical acceptance.
 
 Installer tests now exercise disposable homes, configs-only isolation, unchanged
 repeat runs and recovery after a later settings failure. A private-root rehearsal
 checks automatic recovery after a failed service restart and explicit recovery
 after successful installation, using fake package/service boundaries. Real Arch
 package rebuilding and system-interpreter archive inspection are separate checks.
-The whole-source gate passes 76 tests, ruff and strict mypy; real native package
+The whole-source gate passes 79 tests, ruff and strict mypy; real native package
 building and archive import inspection pass. Incremental review is pending.
 
 ## Reviews
@@ -36,9 +36,11 @@ building and archive import inspection pass. Incremental review is pending.
 Full frozen candidate `2ac49c8` received seven changes-requested findings in the
 canonical Git-private work order. Causal repairs cover motion-frame ownership,
 resynchronization, inactive peers, sandbox UID mapping, packaged imports, GUI
-policy preservation and focus excursions. Reconcile the last two dispositions
-with current evidence, then perform a fresh incremental review including installer
-security. No clean watermark is claimed yet.
+policy preservation and focus excursions. The first incremental review at 3f0b887 verified the original repairs and
+requested two additional changes: a module rebind for /tmp checkouts and complete
+installer transaction serialization with an invocation-specific recovery receipt.
+Both fixes and regressions pass; a fresh incremental review remains pending.
+No clean watermark is claimed yet.
 
 Automatic standards injection is a separate issue per Tommy. Explicitly loaded
 Python, Bash and C++ conventions govern this work; declarations restored from the

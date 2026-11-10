@@ -66,10 +66,12 @@ native host retarget.
 - Empty `focus ` report is stripped and ignored in deployed protocol, retaining
   the prior target. Installed runtime is not altered by these reproductions.
 - Upstream candidate pin: `077d1b3016f4f4f86f608e06a6fc3c46430a9850`;
-  source cache outside Git. Twenty-seven state, pump, actual Unix transport and
-  helper-boundary checks pass; strict mypy passes. Final lint/packaging pending.
+  source cache outside Git. State, pump, actual Unix transport, helper and recovery
+  checks pass alongside lint and strict mypy. Real Arch packages build and pass
+  extracted artifact-only system-interpreter import/CLI checks.
 - Native focus bridges added separately from drawing; both compile against exact
-  installed KWin 6.8.2/Hyprland 0.57.1. No plugin loaded. Stock Hyprland cannot
+  installed KWin 6.8.2/Hyprland 0.57.1. Both pass contained native interface probes;
+  no plugin loaded in the live desktop. Stock Hyprland cannot
   supply authoritative recipient information, so geometry inference is excluded.
   These are version-bound compositor APIs; missing/incompatible bridges stay native.
 - Split assessment: source/adapter/packaging/tests exceed the initial 900-line
@@ -87,8 +89,10 @@ resolved by `workflow_ops.py review-path` for run `mouse-native`. Native Codex p
 independent security/concurrency review ran. No clean watermark claimed.
 Motion-frame ownership, SYN_DROPPED, inactive authority counting, sandbox UID mapping,
 packaged import paths and GUI policy preservation now have causal repairs and tests.
-Focus invalidation composition is implemented; native compositor acceptance and
-incremental review remain open.
+Focus invalidation composition and contained compositor acceptance pass.
+The first incremental pass at 3f0b887 requested two additional repairs: checkout
+relocation in root tests and serialized installer/recovery transactions. Both have
+causal fixes and regressions; their fresh incremental review remains open.
 
 The helper uses the already-installed managed `dbus-fast` API for a real awaited
 D-Bus AddMatch barrier; stdlib has no D-Bus implementation, command monitor output
@@ -112,7 +116,7 @@ Remaining scope: frozen incremental review, remediation and source closeout.
 Done when: source is tested/reviewed and installation is concrete and reviewable;
 live deployment and publication remain held.
 
-The current routing/installer gate passes 76 tests, ruff and strict mypy. Real
+The current routing/installer gate passes 79 tests, ruff and strict mypy. Real
 native package rebuilding and system-interpreter import inspection pass; the
 recovery archive matches every installed usr/ package file and executable mode.
 Private-root automatic/manual recovery rehearsals and configs-only isolation pass.

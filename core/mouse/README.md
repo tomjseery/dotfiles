@@ -80,6 +80,12 @@ After source review and deployment approval:
 ./install/mouse.sh
 ```
 
+The public installer serializes preparation, configuration and recovery through
+one owner-only global lock directory under `/tmp`. An overlapping invocation or
+a different account fails before mutation. Root-stage flags are internal calls
+under that lock. Each invocation reads its own emitted recovery receipt; the
+convenience `last-recovery` file is never a transaction handoff.
+
 The root stage uses `pkexec` for native graphical authentication. It retains a
 verified prior package, exact owned-file contents/modes and daemon enable/running
 state under `/var/lib/dotfiles-mouse/recovery.*` (root-only). It installs the
@@ -103,8 +109,9 @@ file snapshot. Repeating its supported apply operation repairs that separate
 integration. No user profiles, input-remapper mappings or unrelated services are
 rewritten or stopped.
 
-For an explicitly selected system recovery, run the owning `core/mouse/install`
-through `pkexec` with `--recover` and the exact recorded root recovery directory.
+For an explicitly selected system recovery, run `./install/mouse.sh --recover`
+with the exact recorded root recovery directory, as the desktop user. It takes
+the same transaction lock and invokes the internal root recovery through `pkexec`.
 Its standalone recovery utility works even after removing the new Python package.
 User file snapshots can be restored using the same checkout's installation
 module and `--root "$HOME" restore SNAPSHOT`. Record paths before removing a
