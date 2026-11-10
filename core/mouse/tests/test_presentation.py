@@ -2,11 +2,32 @@ import json
 
 import pytest
 
-from midscroll_routing.presentation import LEASE_SECONDS, Presentation
+from midscroll_routing.presentation import (
+    LEASE_SECONDS,
+    RENDERER_LEASE_SECONDS,
+    Presentation,
+)
 
 
 def frame(active: bool) -> str:
     return "presentation " + json.dumps({"version": 1, "active": active})
+
+
+def test_renderer_reports_expire_and_revoke_on_disconnect() -> None:
+    now = 0.0
+    presentation = Presentation(lambda _: True, lambda: now)
+    router = object()
+    presentation.report_renderer(router, 'renderer {"version":1,"pid":101}')
+    assert presentation.renderer_pid(router) == 101
+    now = RENDERER_LEASE_SECONDS
+    assert presentation.renderer_pid(router) is None
+    presentation.report_renderer(router, 'renderer {"version":1,"pid":101}')
+    presentation.disconnect(router)
+    assert presentation.renderer_pid(router) is None
+    presentation.report_renderer(router, 'renderer {"version":1,"pid":null}')
+    assert presentation.renderer_pid(router) is None
+    with pytest.raises(ValueError, match="Invalid renderer report"):
+        presentation.report_renderer(router, 'renderer {"version":1,"pid":true}')
 
 
 def test_presentation_expires_and_never_crosses_uid() -> None:

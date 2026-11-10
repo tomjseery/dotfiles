@@ -11,93 +11,85 @@ from midscroll_routing import Gesture, session
 from midscroll_routing.presentation import ACCEPTED
 
 
-def test_native_presentation_drives_shared_renderer_without_input_authority(
-    engine: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    "case", ["normal", "missing", "lost", "mismatched", "unregistered"]
+)
+def test_native_presentation_requires_correlated_live_renderer(
+    engine: ModuleType,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    case: str,
 ) -> None:
     async def scenario() -> None:
         monkeypatch.setattr(engine, "_uid_has_seat", lambda _: True)
         monkeypatch.setattr(engine, "_uid_is_active", lambda _: True)
         monkeypatch.setattr(engine, "_peer_is_overlay", lambda _: True)
-        monkeypatch.setattr(engine, "is_renderer", lambda _: True)
+        # Credential PIDs are the external boundary; framing, admission,
+        # registration, correlation and revocation use production code.
+        monkeypatch.setattr(engine, "_peer_pid", lambda _: 101)
         notifier = engine.Notifier(engine.FocusFilter())
         path = str(tmp_path / "state.sock")
         server = await asyncio.start_unix_server(notifier._client, path=path)
         async with server:
             viewer, viewer_writer = await asyncio.open_unix_connection(path)
             assert await viewer.readline() == b"0\n"
+            monkeypatch.setattr(engine, "_peer_pid", lambda _: 202)
+            router, router_writer = await asyncio.open_unix_connection(path)
+            assert await router.readline() == b"0\n"
+            if case != "unregistered":
+                router_writer.write(b'routing {"version":1,"kind":"hello"}\n')
+            pid = None if case == "missing" else 999 if case == "mismatched" else 101
+            router_writer.write(
+                ("renderer " + json.dumps({"version": 1, "pid": pid}) + "\n").encode()
+            )
+            await router_writer.drain()
+            if case == "unregistered":
+                assert await router.readline() == b""
+            else:
+
+                async def reported() -> None:
+                    while not notifier.presentation.renderers:
+                        await asyncio.sleep(0)
+
+                await asyncio.wait_for(reported(), 1)
             monkeypatch.setattr(engine, "_peer_is_overlay", lambda _: False)
             native, native_writer = await asyncio.open_unix_connection(path)
-            native_writer.write(b'presentation {"version":1,"active":true}\n')
-            await native_writer.drain()
-            assert await native.readline() == ACCEPTED
-            # The physical fallback remains inactive. Its regular ticker call
-            # must preserve native presentation instead of overwriting it.
-            notifier.set(False)
-            assert await viewer.readline() == b"1\n"
-            assert notifier.msg == b"0\n"
-            assert not notifier.routing.routers
-            native_writer.write(b'routing {"version":1,"kind":"hello"}\n')
-            await native_writer.drain()
+            if case in {"normal", "lost"}:
+                native_writer.write(b'presentation {"version":1,"active":true}\n')
+                await native_writer.drain()
+                assert await native.readline() == ACCEPTED
+                notifier.set(False)
+                assert await viewer.readline() == b"1\n"
+                assert notifier.msg == b"0\n"
+                if case == "lost":
+                    viewer_writer.close()
+                    await viewer_writer.wait_closed()
+
+                    async def renderer_closed() -> None:
+                        while 101 in notifier.control_pids.values():
+                            await asyncio.sleep(0)
+
+                    await asyncio.wait_for(renderer_closed(), 1)
+                    native_writer.write(b'presentation {"version":1,"active":true}\n')
+                else:
+                    # A presenter can never become a routing authority.
+                    native_writer.write(b'routing {"version":1,"kind":"hello"}\n')
+                await native_writer.drain()
             assert await native.readline() == b""
-            assert not notifier.routing.routers
-            notifier.set(False)
-            assert await viewer.readline() == b"0\n"
-            native_writer.close()
-            viewer_writer.close()
-            await native_writer.wait_closed()
-            await viewer_writer.wait_closed()
+            assert not notifier.presentation.leases
+            assert len(notifier.routing.routers) == (0 if case == "unregistered" else 1)
+            if case == "normal":
+                notifier.set(False)
+                assert await viewer.readline() == b"0\n"
+            for writer in (native_writer, viewer_writer, router_writer):
+                writer.close()
+                await writer.wait_closed()
 
             async def disconnected() -> None:
                 while notifier.writers or notifier.presentation.peers:
                     await asyncio.sleep(0)
 
             await asyncio.wait_for(disconnected(), 1)
-
-    asyncio.run(scenario())
-
-
-@pytest.mark.parametrize("connected", [True, False])
-def test_native_presentation_requires_live_renderer(
-    engine: ModuleType,
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    connected: bool,
-) -> None:
-    async def scenario() -> None:
-        monkeypatch.setattr(engine, "_uid_has_seat", lambda _: True)
-        monkeypatch.setattr(engine, "_uid_is_active", lambda _: True)
-        monkeypatch.setattr(engine, "_peer_is_overlay", lambda _: True)
-        monkeypatch.setattr(engine, "is_renderer", lambda _: connected)
-        notifier = engine.Notifier(engine.FocusFilter())
-        path = str(tmp_path / "state.sock")
-        server = await asyncio.start_unix_server(notifier._client, path=path)
-        async with server:
-            viewer, viewer_writer = await asyncio.open_unix_connection(path)
-            assert await viewer.readline() == b"0\n"
-            monkeypatch.setattr(engine, "_peer_is_overlay", lambda _: False)
-            native, native_writer = await asyncio.open_unix_connection(path)
-            if connected:
-                native_writer.write(b'presentation {"version":1,"active":true}\n')
-                await native_writer.drain()
-                assert await native.readline() == ACCEPTED
-                notifier.set(False)
-                assert await viewer.readline() == b"1\n"
-                viewer_writer.close()
-                await viewer_writer.wait_closed()
-
-                async def renderer_closed() -> None:
-                    while notifier.renderers:
-                        await asyncio.sleep(0)
-
-                await asyncio.wait_for(renderer_closed(), 1)
-                native_writer.write(b'presentation {"version":1,"active":true}\n')
-                await native_writer.drain()
-            assert await native.readline() == b""
-            assert not notifier.presentation.leases
-            native_writer.close()
-            viewer_writer.close()
-            await native_writer.wait_closed()
-            await viewer_writer.wait_closed()
 
     asyncio.run(scenario())
 

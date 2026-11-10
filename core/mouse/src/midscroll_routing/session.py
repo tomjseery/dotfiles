@@ -197,6 +197,104 @@ async def observe(
         raise OSError("No supported compositor event interface")
 
 
+async def renderer_pid(bus: MessageBus) -> int | None:
+    """Resolve a loaded renderer against one unique KWin bus connection."""
+
+    async def call(
+        destination: str,
+        path: str,
+        interface: str,
+        member: str,
+        signature: str,
+        body: list[object],
+        expected: str,
+    ) -> object:
+        reply = await bus.call(
+            Message(
+                destination=destination,
+                path=path,
+                interface=interface,
+                member=member,
+                signature=signature,
+                body=body,
+            )
+        )
+        if (
+            reply is None
+            or reply.message_type is not MessageType.METHOD_RETURN
+            or reply.signature != expected
+            or len(reply.body) != 1
+        ):
+            raise ValueError(f"Invalid renderer {member} reply")
+        return reply.body[0]
+
+    async def owner() -> object:
+        return await call(
+            "org.freedesktop.DBus",
+            "/org/freedesktop/DBus",
+            "org.freedesktop.DBus",
+            "GetNameOwner",
+            "s",
+            ["org.kde.KWin"],
+            "s",
+        )
+
+    unique = await owner()
+    if not isinstance(unique, str) or not unique.startswith(":"):
+        raise ValueError("Invalid unique KWin owner")
+    loaded = await call(
+        unique,
+        "/Effects",
+        "org.kde.kwin.Effects",
+        "isEffectLoaded",
+        "s",
+        ["midscrollcursor"],
+        "b",
+    )
+    if type(loaded) is not bool:
+        raise ValueError("Invalid renderer loaded state")
+    if not loaded:
+        return None
+    pid = await call(
+        "org.freedesktop.DBus",
+        "/org/freedesktop/DBus",
+        "org.freedesktop.DBus",
+        "GetConnectionUnixProcessID",
+        "s",
+        [unique],
+        "u",
+    )
+    if type(pid) is not int or not 0 < pid <= 0xFFFFFFFF:
+        raise ValueError("Invalid renderer process ID")
+    # The well-known name may have changed while the unique connection survived.
+    return pid if await owner() == unique else None
+
+
+async def renderer_monitor(desktop: str, writer: asyncio.StreamWriter) -> None:
+    """Report effect availability; this is not a rendered-frame acknowledgement."""
+    bus: MessageBus | None = None
+    try:
+        if "kde" in desktop.casefold().split(":"):
+            bus = MessageBus(auth_timeout=1)
+            await asyncio.wait_for(bus.connect(), 1)
+        while True:
+            pid = None
+            if bus is not None:
+                try:
+                    pid = await asyncio.wait_for(renderer_pid(bus), 0.15)
+                except (TimeoutError, ValueError) as error:
+                    log.debug("Renderer unavailable: %s", error)
+            if writer.transport.get_write_buffer_size() > 4096:
+                raise OSError("Renderer report channel is backed up")
+            report = {"version": 1, "pid": pid}
+            writer.write(("renderer " + json.dumps(report) + "\n").encode())
+            await writer.drain()
+            await asyncio.sleep(0.25)
+    finally:
+        if bus is not None:
+            bus.disconnect()
+
+
 async def serve(desktop: str, path: Path = SOCKET) -> None:
     if not trusted_socket(path):
         raise OSError("Routing socket or containing directory is not trusted")
@@ -212,6 +310,7 @@ async def serve(desktop: str, path: Path = SOCKET) -> None:
     monitor = asyncio.create_task(observe(desktop, invalidate, ready))
     readiness = asyncio.create_task(ready.wait())
     request_task: asyncio.Task[None] | None = None
+    renderer_task: asyncio.Task[None] | None = None
     try:
         completed, _ = await asyncio.wait(
             {monitor, readiness}, timeout=1, return_when=asyncio.FIRST_COMPLETED
@@ -223,8 +322,9 @@ async def serve(desktop: str, path: Path = SOCKET) -> None:
         writer.write(b'routing {"version":1,"kind":"hello"}\n')
         await writer.drain()
         request_task = asyncio.create_task(answer(desktop, reader, writer))
+        renderer_task = asyncio.create_task(renderer_monitor(desktop, writer))
         completed, _ = await asyncio.wait(
-            {monitor, request_task}, return_when=asyncio.FIRST_COMPLETED
+            {monitor, request_task, renderer_task}, return_when=asyncio.FIRST_COMPLETED
         )
         for task in completed:
             task.result()
@@ -232,6 +332,8 @@ async def serve(desktop: str, path: Path = SOCKET) -> None:
         tasks = [monitor, readiness]
         if request_task is not None:
             tasks.append(request_task)
+        if renderer_task is not None:
+            tasks.append(renderer_task)
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)

@@ -7,10 +7,12 @@ cursor renderer used by terminals. The browser adapter contains no cursor images
 direction calculations or cursor styles. Native scrolling, link opening and tab
 closing remain owned by the browser.
 
-The daemon accepts a lease only while a renderer connection from the verified,
-root-owned KWin executable is present for the same UID. It revokes eligibility
-when that connection disappears. This checks renderer availability, not a rendered
-frame acknowledgement.
+The existing session helper queries KWin's loaded-effect state and unique D-Bus
+owner PID. The daemon accepts a lease only when that fresh PID matches the kernel
+peer credentials of a live state-socket connection for the same UID. Renderer
+loss or stale readiness reports revoke eligibility. This needs no access to
+KWin's protected `/proc/PID/exe` and no extra daemon capabilities. It checks
+renderer availability, not a rendered-frame acknowledgement.
 
 After the daemon accepts a lease, the adapter makes the native fixed indicator
 transparent. It restores its prior opacity on cancellation, socket failure or an
