@@ -42,9 +42,13 @@ def test_archive_rejects_unrelated_home_files(tmp_path: Path) -> None:
             "usr/bin/midscroll-router",
             f"{purelib}/midscroll_routing/__init__.py",
             f"{purelib}/midscroll_routing/session.py",
-            "etc/systemd/system/midscroll.service.d/native-default.conf",
+            "usr/share/midscroll/native-default.conf",
+            "usr/bin/midscroll-overlay-session",
+            "usr/bin/midscroll-session-start",
             "home/developer/unrelated",
         ]:
-            archive.addfile(tarfile.TarInfo(name))
+            entry = tarfile.TarInfo(name)
+            entry.mode = 0o755 if name.startswith("usr/bin/") else 0o644
+            archive.addfile(entry)
     with pytest.raises(ValueError, match="unexpected installation"):
         inspect_package(package)

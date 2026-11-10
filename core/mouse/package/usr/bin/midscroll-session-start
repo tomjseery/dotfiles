@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ :${XDG_CURRENT_DESKTOP-}: == *:Hyprland:* ]]; then
+  hyprctl plugin load /usr/lib/hyprland/plugins/mouse_target_hyprland.so
+fi
+names=()
+for name in XDG_CURRENT_DESKTOP WAYLAND_DISPLAY DISPLAY HYPRLAND_INSTANCE_SIGNATURE; do
+  [[ ! -v $name ]] || names+=("$name")
+done
+systemctl --user import-environment "${names[@]}"
+systemctl --user restart midscroll-router.service midscroll-overlay.service

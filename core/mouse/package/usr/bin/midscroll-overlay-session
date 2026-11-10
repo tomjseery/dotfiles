@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+args=()
+if [[ :${XDG_CURRENT_DESKTOP-}: == *:KDE:* ]]; then
+  if result=$(busctl --user call org.kde.KWin /Effects org.kde.kwin.Effects \
+    isEffectLoaded s midscrollcursor 2>/dev/null) && [[ $result == 'b true' ]]; then
+    args+=(--no-drawing)
+  fi
+fi
+exec /usr/bin/midscroll-overlay "${args[@]}"

@@ -2,21 +2,8 @@
 set -euo pipefail
 
 integration_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-source_config="$integration_dir/middle-click-autoscroll.conf"
 config_home=${XDG_CONFIG_HOME:-"$HOME/.config"}
-target_config="$config_home/middleclick-autoscroll/config"
-
-if ! command -v middleclick-autoscroll &>/dev/null; then
-    printf 'middleclick-autoscroll is required for Chromium integration.\n' >&2
-    exit 1
-fi
-
-if ! cmp -s "$source_config" "$target_config"; then
-    install -D -m 0644 "$source_config" "$target_config"
-fi
-# apply repairs drift and discovers apps without rewriting an already-correct
-# config on every installer run.
-middleclick-autoscroll apply --quiet
+"$integration_dir/../../mouse/apps/chromium/install-user"
 
 # KWallet being locked/misconfigured must never be able to hang Chrome again:
 # keep Chrome on its own internal credential store instead of the desktop
@@ -24,5 +11,5 @@ middleclick-autoscroll apply --quiet
 chrome_flags="$config_home/chrome-flags.conf"
 touch "$chrome_flags"
 if ! grep -q '^--password-store=basic$' "$chrome_flags"; then
-    printf -- '--password-store=basic\n' >> "$chrome_flags"
+  printf -- '--password-store=basic\n' >>"$chrome_flags"
 fi

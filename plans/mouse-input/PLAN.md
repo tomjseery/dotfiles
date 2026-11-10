@@ -107,11 +107,15 @@ installation. No recovery/deployment action has run.
 ## Next Steps
 
 Scope: implement the approved design through isolated verification and review.
-Current slice: pinned routing engine/protocol and causal regressions.
-Remaining scope: backend helper, installers, combined desktop acceptance, review.
+Current slice: verified installer/recovery cutover and reproducible bridge harness.
+Remaining scope: frozen incremental review, remediation and source closeout.
 Done when: source is tested/reviewed and installation is concrete and reviewable;
 live deployment and publication remain held.
 
-Resolve desktop API evidence; implement complete-sequence ownership and explicit
-router roles inside the pinned engine; test actual IPC and concurrency before
-installer changes. Keep this recovery snapshot current at material milestones.
+The current routing/installer gate passes 76 tests, ruff and strict mypy. Real
+native package rebuilding and system-interpreter import inspection pass; the
+recovery archive matches every installed usr/ package file and executable mode.
+Private-root automatic/manual recovery rehearsals and configs-only isolation pass.
+Both native bridges passed contained real-window focus/transport acceptance.
+Complete live/composed application acceptance is still a deployment gate, not a
+claim established by these tests. See PROGRESS.md for the current review action.
