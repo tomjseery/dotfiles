@@ -100,18 +100,18 @@ index 67ade43..e144482 100644
                          format="%(levelname)s: %(message)s")
      if not WAYLAND:
 diff --git a/midscroll.py b/midscroll.py
-index 7594c03..ca090fc 100644
 --- a/midscroll.py
 +++ b/midscroll.py
-@@ -11,6 +11,7 @@ import sys
+@@ -11,6 +11,8 @@
  import time
  
  from evdev import InputDevice, UInput, ecodes as e, list_devices
 +from midscroll_routing import Gesture, Routing
++from midscroll_routing.presentation import ACCEPTED, Presentation
  
  VERSION = "1.15"
  
-@@ -29,6 +30,8 @@ PX_PER_NOTCH = 55.0       # how many px one wheel notch scrolls in your apps
+@@ -29,6 +31,8 @@
  MAX_DRAG_PX = 1200.0      # cap on effective drag distance (~screen height)
  TICK_HZ = 90.0            # scroll event rate (higher = smoother)
  NATURAL = False           # True inverts scroll direction
@@ -120,7 +120,7 @@ index 7594c03..ca090fc 100644
  TOGGLE_MODE = False       # True: click to start/stop instead of hold-and-drag
  DESKTOP_SCROLL = False    # True: also autoscroll over the desktop and panels
  GHOST_CURSOR = True       # True: helper draws a cursor at the dragged point
-@@ -88,7 +91,7 @@ WRITE_DROP_BYTES = 65536   # disconnect a client this far behind
+@@ -88,7 +92,7 @@
  
  FLOAT_KEYS = {"DEADZONE_PX", "TICK_HZ", "SPEED_MULT", "SPEED_EXP",
                "MAX_PX_PER_SEC", "PX_PER_NOTCH", "MAX_DRAG_PX", "GHOST_SCALE"}
@@ -129,7 +129,7 @@ index 7594c03..ca090fc 100644
               "SNAP_CURSOR_ON_RELEASE", "ALLOW_KEYBOARDS"}
  DEVICE_KEYS = {"EXTRA_DEVICES", "IGNORE_DEVICES"}
  # Zero would divide by zero (TICK_HZ, PX_PER_NOTCH) or make the daemon
-@@ -232,6 +235,8 @@ def load_config(path=CONFIG_PATH):
+@@ -232,6 +236,8 @@
              except ValueError as err:
                  log.error("config: %s = %r rejected: %s (keeping %s)",
                            k, v, err, globals()[k])
@@ -138,7 +138,7 @@ index 7594c03..ca090fc 100644
          elif k == "BLACKLIST":
              globals()["BLACKLIST"] = parse_blacklist(v)
          elif k in DEVICE_KEYS:
-@@ -277,7 +282,8 @@ def _peer_is_overlay(pid):
+@@ -277,7 +283,8 @@
      """
      if pid is None:
          return False
@@ -148,10 +148,12 @@ index 7594c03..ca090fc 100644
      try:
          with open(f"/proc/{pid}/cmdline", "rb") as f:
              argv = [a.decode("utf-8") for a in f.read().split(b"\0") if a]
-@@ -401,6 +407,10 @@ class Notifier:
+@@ -401,6 +408,12 @@
          self.last_pos = None
          self.active_uids = frozenset()
          self.ghost_visible = None
++        self.presentation = Presentation(_uid_is_active)
++        self.cursor_messages = {}
 +        self.routing = Routing(
 +            frozenset(FALLBACK_APPS), e.BTN_MIDDLE,
 +            lambda writer: writer in self.writers
@@ -159,7 +161,28 @@ index 7594c03..ca090fc 100644
  
      async def start(self):
          try:
-@@ -451,18 +461,22 @@ class Notifier:
+@@ -430,10 +443,12 @@
+         peer_socket = writer.get_extra_info("socket")
+         uid = _peer_uid(peer_socket)
+         pid = _peer_pid(peer_socket)
+-        if (uid is None or not _uid_has_seat(uid)
+-                or not _peer_is_overlay(pid)):
++        if uid is None or not _uid_has_seat(uid):
+             log.debug("rejected state socket peer uid=%s pid=%s", uid, pid)
+             writer.close()
++            return
++        if not _peer_is_overlay(pid):
++            await self._presenter(reader, writer, uid)
+             return
+         if self._too_many(uid):
+             # Every connection costs a broadcast slot at GHOST_HZ, so a
+@@ -446,30 +461,56 @@
+         self.active_uids = frozenset(
+             u for u in set(self.writers.values()) if _uid_is_active(u))
+         try:
+-            writer.write(self.msg)
++            writer.write(self.cursor_messages.get(uid, b"0\n"))
+             while True:
                  line = await reader.readline()
                  if not line:
                      break
@@ -178,13 +201,86 @@ index 7594c03..ca090fc 100644
              self.focus.remove(client)
              writer.close()
  
++    async def _presenter(self, reader, writer, uid):
++        # Presentation-only connections can never enter routing/focus handlers.
++        if not NATIVE_DEFAULT or not self.presentation.admit(writer, uid):
++            writer.close()
++            return
++        try:
++            while True:
++                line = await asyncio.wait_for(reader.readline(), 0.5)
++                if not line:
++                    break
++                self.presentation.receive(writer, line.decode("utf-8").rstrip("\r\n"))
++                if writer.transport.get_write_buffer_size() > 4096:
++                    break
++                writer.write(ACCEPTED)
++        except (OSError, ValueError, TimeoutError) as error:
++            log.debug("Presentation peer ended: %s", error)
++        finally:
++            self.presentation.disconnect(writer)
++            writer.close()
++
      def _drop(self, writer):
          self.writers.pop(writer, None)
 +        self.routing.disconnect(writer)
          try:
              writer.close()
          except (OSError, ConnectionError):
-@@ -535,6 +549,7 @@ class State:
+             pass
+ 
+-    def _broadcast(self, msg, active_only=False):
++    def _broadcast(self, msg, active_only=False, recipient=None):
+         for w, uid in list(self.writers.items()):
++            if recipient is not None and uid != recipient:
++                continue
+             if active_only and uid not in self.active_uids:
+                 continue
+             try:
+@@ -489,24 +530,26 @@
+ 
+     def set(self, active):
+         msg = b"1\n" if active else b"0\n"
+-        if msg == self.msg:
+-            return
+-        self.msg = msg
+-        self.last_pos = None  # each drag re-sends its position
+-        if active:
+-            # Re-checked per drag: sessions switch while we run.
+-            self.active_uids = frozenset(
+-                u for u in set(self.writers.values()) if _uid_is_active(u))
+-        self._broadcast(msg)
++        if msg != self.msg:
++            self.last_pos = None
++        self.msg = msg  # Physical fallback state alone owns ghost/position output.
++        uids = set(self.writers.values())
++        self.active_uids = frozenset(uid for uid in uids if _uid_is_active(uid))
++        for uid in uids:
++            visible = ((active and uid in self.active_uids)
++                       or self.presentation.active(uid))
++            cursor = b"1\n" if visible else b"0\n"
++            if self.cursor_messages.get(uid, b"0\n") != cursor:
++                self._broadcast(cursor, recipient=uid)
++            self.cursor_messages[uid] = cursor
++        for uid in self.cursor_messages.keys() - uids:
++            del self.cursor_messages[uid]
+ 
+     def heartbeat(self):
+-        """Re-send "1" during a drag so the helper's watchdog stays quiet.
+-
+-        set() and pos() only speak on change, so a drag held still for a few
+-        seconds would otherwise look like a dead daemon and be hidden.
+-        """
+-        if self.msg == b"1\n":
+-            self._broadcast(self.msg)
++        """Keep both native and fallback presentation viewers alive."""
++        for uid, msg in list(self.cursor_messages.items()):
++            if msg == b"1\n":
++                self._broadcast(msg, recipient=uid)
+ 
+     def pos(self, dx, dy):
+         """Offset of the ghost cursor from the anchor, in screen pixels."""
+@@ -535,6 +578,7 @@
  
      def __init__(self, ui):
          self.ui = ui
@@ -192,7 +288,7 @@ index 7594c03..ca090fc 100644
          self.reset()
  
      def reset(self):
-@@ -652,8 +667,12 @@ async def ticker(states, notifier, focus):
+@@ -652,8 +696,12 @@
          now = time.monotonic()
          dt = min(now - last, MAX_TICK_DT)  # cap so a stall can't lurch
          last = now
@@ -205,7 +301,7 @@ index 7594c03..ca090fc 100644
                  tick(st, dt, focus)
              except Exception as err:  # one bad tick must not kill the loop
                  log.error("tick error: %r", err)
-@@ -679,7 +698,7 @@ async def ticker(states, notifier, focus):
+@@ -679,7 +727,7 @@
  
  
  def tick(st, dt, focus):
@@ -214,7 +310,7 @@ index 7594c03..ca090fc 100644
          # A blacklisted app is focused. Never scroll, and stop anything
          # already running (focus changed mid-scroll) so it can't keep
          # scrolling under the blacklisted app.
-@@ -875,11 +894,19 @@ async def pump(path, dev, states, tasks, focus, our_paths, notifier):
+@@ -875,11 +923,19 @@
      if mirror_path:
          our_paths.add(mirror_path)
      st = states[path] = State(ui)
@@ -236,7 +332,7 @@ index 7594c03..ca090fc 100644
                  if _toggle_key(ev, st, ui, focus):
                      continue
                  # An unrelated button while idle: fall through and forward it.
-@@ -929,8 +956,12 @@ async def pump(path, dev, states, tasks, focus, our_paths, notifier):
+@@ -929,8 +985,12 @@
                                       st.dy * GHOST_SCALE)
                      continue
              if ev.type == e.EV_SYN:
@@ -249,7 +345,7 @@ index 7594c03..ca090fc 100644
                  elif st.release_pending:
                      was_click = _finish_release(st, ui, notifier)
                      if was_click:
-@@ -952,6 +983,8 @@ async def pump(path, dev, states, tasks, focus, our_paths, notifier):
+@@ -952,6 +1012,8 @@
      finally:
          # Don't leave a button stuck down on the virtual device if the real
          # one vanished mid-press.
@@ -258,7 +354,7 @@ index 7594c03..ca090fc 100644
          if held or st.passthrough:
              for code in held:
                  ui.write(e.EV_KEY, code, 0)
-@@ -1118,6 +1151,13 @@ def report_devices():
+@@ -1118,6 +1180,13 @@
              dev.close()
  
  
@@ -272,7 +368,7 @@ index 7594c03..ca090fc 100644
  async def main():
      focus = FocusFilter()
      notifier = Notifier(focus)
-@@ -1130,6 +1170,7 @@ async def main():
+@@ -1130,6 +1199,7 @@
          log.warning("uinput phys marker did not round-trip; relying on "
                      "device-path tracking to skip our own mirrors")
      tick_task = asyncio.create_task(ticker(states, notifier, focus))
@@ -280,7 +376,7 @@ index 7594c03..ca090fc 100644
      log.info("running")
      try:
          while True:
-@@ -1162,6 +1203,7 @@ async def main():
+@@ -1162,6 +1232,7 @@
                      pump(path, dev, states, tasks, focus, our_paths, notifier))
              await asyncio.sleep(2)
      finally:
@@ -288,7 +384,7 @@ index 7594c03..ca090fc 100644
          tick_task.cancel()
          for t in list(tasks.values()):
              t.cancel()
-@@ -1203,6 +1245,8 @@ def parse_args(argv=None):
+@@ -1203,6 +1274,8 @@
                 "override it for this run.")
      p.add_argument("--version", action="version",
                     version=f"midscroll {VERSION}")
@@ -297,7 +393,7 @@ index 7594c03..ca090fc 100644
      p.add_argument("--config", default=CONFIG_PATH, metavar="PATH",
                     help=f"config file to read (default: {CONFIG_PATH})")
      p.add_argument("--debug", action="store_true",
-@@ -1257,6 +1301,8 @@ def cli():
+@@ -1257,6 +1330,8 @@
          level=logging.DEBUG if args.debug else logging.INFO,
          format="%(levelname)s: %(message)s")
      load_config(args.config)
