@@ -9,9 +9,10 @@ PR: not opened; publication remains held. Live installation authorized 2026-11-1
 
 ## Current state
 
-The repaired package and Gecko state adapter are installed. Running Firefox still
-needs a restart and the user's visible acceptance; do not call the live appearance
-complete before that. A restart page is open and the user check is pending.
+The installed fix is accepted. On 2026-11-10 the user confirmed "YEP WORKS now"
+in response to the restart/visible-arrow/native-click acceptance check. This closes
+the previously pending live Firefox cursor requirement. No further runtime changes
+are needed for the accepted task.
 
 Final production source is `44bb31d`. Installed engine, session reporter,
 presentation module and browser observer hashes exactly match the final contained
@@ -63,10 +64,8 @@ from the onboarding owner are preserved outside the mouse commits.
 
 ## Next action and limits
 
-Wait for the user to restart Firefox using its open native restart page, then
-confirm the visible moving arrow and preserved link/tab clicks. A negative report
-returns to live causal diagnosis; a source test or startup marker is not acceptance.
-The current Firefox process was 735715 when the restart page opened.
+Execution complete following the user's live acceptance. Keep the working setup
+and retained recovery. No publication or further installation is requested.
 
 Preserve unrelated work, sessions, prior recovery directories and the withdrawn
 experiment. Publication is not authorized. Do not log out, reboot, restart or
