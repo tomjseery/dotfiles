@@ -7,8 +7,8 @@ if [[ $EUID -ne 0 ]]; then
 fi
 
 script_path=$(readlink -f "${BASH_SOURCE[0]}")
-core_root=$(cd "$(dirname "$script_path")/../../../.." && pwd)
-chrome_policy_installer="$core_root/system-configs/chrome-policy/install"
+core_root=$(cd "$(dirname "$script_path")/../../.." && pwd)
+chrome_policy_installer="$core_root/config/system/chromium/install"
 
 if [[ ! -x $chrome_policy_installer ]]; then
     printf 'Missing Chrome policy installer: %s\n' "$chrome_policy_installer" >&2

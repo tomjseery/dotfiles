@@ -64,7 +64,7 @@ def main():
     for kind, merger in [("kconfig", merge_kconfig), ("json", merge_json)]:
         if args.kind and args.kind != kind:
             continue
-        for source in sorted((args.layer / kind).glob("*")):
+        for source in sorted(args.layer.rglob(f"{kind}/*")):
             target = targets[source.name]
             if target.is_symlink():
                 raise SystemExit(f"Refusing to edit a symlink: {target}. Migrate it to a live file first.")

@@ -10,11 +10,15 @@ for argument in "$@"; do
     fi
 done
 set -- "${arguments[@]}"
+# shellcheck source-path=SCRIPTDIR
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/common.bash"
-python3 "$repo_root/scripts/apply-settings.py" "$repo_root/core/settings" --dry-run
-stow_configs "$repo_root/core/configs" shell apps bin kitty vscode kde
+source "$repo_root/install/lib/dotfiles/configuration.bash"
+python3 "$repo_root/scripts/apply-settings.py" "$repo_root/core/config" --dry-run
+dotfiles_config_stow "$repo_root" all "${#dry_run[@]}"
 "$repo_root/install/agents.sh" --configs-only "${dry_run[@]}"
-apply_settings "$repo_root/core/settings"
+apply_settings "$repo_root/core/config"
+# Expand HOME when Bash reads the installed loader.
+# shellcheck disable=SC2016
 loader='source "$HOME/.config/shell/interactive.bash"'
 if ! grep -Fq '.config/shell/interactive.bash' "$HOME/.bashrc" 2>/dev/null; then
     if (( ${#dry_run[@]} )); then
