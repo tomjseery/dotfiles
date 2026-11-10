@@ -9,29 +9,38 @@ PR: not opened; publication remains held. Live installation authorized 2026-11-1
 
 ## Current state
 
-The initial source implementation and isolated verification are complete.
-Live deployment has now occurred; visual cursor acceptance is active.
-Technical source review is approved through `3a5c3b62f9f655a0e2361305394ee33ae514319e`.
-The branch contains pinned native-default routing, typed session/gesture handling,
-actual compositor target bridges, native application defaults, thin public
-installer entry points and retained package/file recovery. Obsolete pass-through
-manifests and the installed-executable overlay wrapper are removed from source.
-The native-default package and services are now live, with the KDE target bridge
-loaded through its supported API. The user confirmed normal clicks and native
-scrolling work, then requested restoring the moving arrow cursor.
+The requested visible global cursor behaviour is NOT complete. The user reports
+terminal fallback shows the desired cursor; native Firefox scrolling does not.
+Implementation changes are frozen for an independent read-only root-cause audit.
 
-The actual public `core/mouse/install --prepare` completes with 80 tests, ruff,
-strict mypy, both bridge builds, real Arch package/import inspection and a recovery
-archive matching installed package files. Bash syntax, ShellCheck and shfmt pass.
-Installer regressions cover private homes/locks, configs-only isolation, repeat
-runs, relocated checkouts, overlapping invocations, user-stage failure, and both
-automatic and explicit private-root recovery with synthetic package/service I/O.
+Native-default midscroll and its session services are installed and running.
+Normal native link/tab middle-click and scrolling were confirmed by the user.
+The attempted AutoConfig/CSS workaround was installed, then its two startup files
+were restored/removed using the retained native-cursor.json recovery. A running
+browser may retain already-loaded code until restart. Do not reapply that workaround.
 
-Both native bridges pass the committed contained compositor harness: observation
-readiness, actual same-class root targets, A→B→A without querying B, new generations,
-empty-area rejection and final invalidation. KWin uses a virtual backend;
-Hyprland nests inside it without physical input nodes or host seat/session sockets.
-Generated results are ignored under the harness's artifacts directory.
+The 106-test gate and headless real-browser checks established input semantics,
+configuration handling and computed CSS. They did NOT establish actual compositor
+cursor rendering. Earlier statements treating those checks as visible cursor
+acceptance were incorrect.
+
+Confirmed shared-renderer break: installed midscroll broadcasts its fallback
+State.scrolling only. Native browser input is passed through, so it never sets
+that flag. The loaded KWin effect reads only that flag; it has no native browser
+scroll-state input. Its installed library hash matches the cached build.
+
+Independent fresh review completed. Exact Firefox 159.0.1 source opens a non-tooltip
+XUL autoscroll panel; the popup manager disables custom image cursors by default
+and GTK then uses the ordinary cursor. Making that panel transparent leaves the
+guard active. The source default is verified and installed autoscroll JavaScript
+matches the release source byte-for-byte; effective LIVE preference/widget state
+has not been measured. Do not present that live value as observed.
+
+This explains why computed PNG CSS and headless scrolling tests could pass without
+proving a visible cursor. Preserve the browser security preference. The next
+measurement is an isolated actual Wayland run that reads the effective preference
+and observes the emitted/rendered cursor during native autoscroll. No further
+implementation or live state changes were made in the independent audit.
 
 ## Reviews
 
@@ -48,13 +57,12 @@ from the onboarding owner are preserved outside the mouse commits.
 
 ## Next action and limits
 
-Complete the requested moving directional cursor without changing working native
-input routing. The Gecko native UI observer prototype passes actual browser
-start/move/stop and link checks in a temporary profile. Finish transactional
-configuration, startup verification and user visual acceptance; do not call the
-whole feature done before that acceptance.
+Complete the independent causal report with exact source evidence and separate
+observed facts from unverified hypotheses. Choose the next discriminating rendered
+cursor measurement before any further implementation. The target remains one
+shared global renderer with normal native click behaviour; browser-specific cursor
+styling has been rejected by the user.
 
-The root installation's retained recovery is
-`/var/lib/dotfiles-mouse/recovery.XLA6WgJK`. Preserve unrelated user changes,
-sessions, the withdrawn experiment and separate standards work. Publication is
-not authorized. Do not log out, reboot or restart the desktop.
+Root recovery: `/var/lib/dotfiles-mouse/recovery.XLA6WgJK`. Preserve unrelated work,
+sessions and the withdrawn experiment. Publication is not authorized. Do not log
+out, reboot, restart or hot-unload the live compositor.
