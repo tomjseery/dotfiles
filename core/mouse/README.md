@@ -24,6 +24,8 @@ require a browser window-class exception list.
   autoscroll and disables middle-button paste/URL loading. It preserves other
   preference files and all user profiles. An existing user preference overrides
   an application default; restart applications and check their settings.
+  [Native cursor presentation](apps/gecko/README.md) retains real autoscroll while
+  replacing Gecko's fixed circle with a moving themed directional cursor.
 - `settings/kconfig/kwinrc` enables only the target bridge. The independent
   `kwin-scroll-cursor/` effect and its existing activation preference are retained.
   The supported overlay CLI suppresses duplicate drawing only when that effect

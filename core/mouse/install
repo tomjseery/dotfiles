@@ -18,6 +18,9 @@ recover_system() {
   [[ $(stat -c %u -- "$backup") == 0 && $(stat -c %a -- "$backup") == 700 ]] || return 2
   [[ -f $backup/previous.pkg.tar.zst && -f $backup/files.json && -f $backup/restore-files.py ]] || return 2
   # Recovery is self-contained even when pacman removed the new Python package.
+  if [[ -f $backup/native-cursor.json ]]; then
+    /usr/bin/python3 -I "$backup/restore-files.py" --root / restore "$backup/native-cursor.json" || return
+  fi
   if [[ -f $backup/native-apps.json ]]; then
     /usr/bin/python3 -I "$backup/restore-files.py" --root / restore "$backup/native-apps.json" || return
   fi
@@ -53,6 +56,7 @@ install_system() {
   [[ $(pacman -Qp "$previous") == "$(pacman -Q midscroll)" ]] || return 1
   [[ -f $bridge_dir/mousetarget.so && -f $bridge_dir/mouse_target_hyprland.so ]] || return 1
   /usr/bin/python3 -I "$module/src/midscroll_routing/installation.py" --root / native-defaults --backup /var/lib/dotfiles-mouse/preflight-unused.json --dry-run
+  /usr/bin/python3 -I "$module/src/midscroll_routing/installation.py" --root / native-cursor --source "$module/apps/gecko/native-cursor.cfg" --backup /var/lib/dotfiles-mouse/preflight-cursor-unused.json --dry-run
   install -d -m 0755 /var/lib/dotfiles-mouse
   backup=$(mktemp -d /var/lib/dotfiles-mouse/recovery.XXXXXXXX)
   install -m 0644 "$previous" "$backup/previous.pkg.tar.zst"
@@ -83,6 +87,7 @@ install_system() {
   [[ ! -f $backup/previous.conf ]] || prior=(--previous "$backup/previous.conf")
   /usr/bin/python3 -I -m midscroll_routing.installation --root / configure-system "${prior[@]}"
   /usr/bin/python3 -I -m midscroll_routing.installation --root / native-defaults --backup "$backup/native-apps.json"
+  /usr/bin/python3 -I -m midscroll_routing.installation --root / native-cursor --source "$module/apps/gecko/native-cursor.cfg" --backup "$backup/native-cursor.json"
   # Keep this profile-owned guard outside pacman's file list: a stock package
   # replacement must retain --native-default and fail before grabbing input.
   install -D -m 0644 "$module/system/native-default.conf" /etc/systemd/system/midscroll.service.d/native-default.conf
@@ -136,7 +141,7 @@ case $mode in
     'Would install native-default routing; native bridges activate on the next desktop session.'
   exit 0
   ;;
-'' | --prepare | --configs-only | --recover) ;;
+'' | --prepare | --configs-only | --recover | --cursor-only) ;;
 *)
   printf 'Unknown option: %s\n' "$mode" >&2
   exit 2
@@ -168,6 +173,14 @@ if [[ $mode == --recover ]]; then
     exit 2
   }
   pkexec "$module/install" --system-recover "$recovery_target"
+  exit
+fi
+if [[ $mode == --cursor-only ]]; then
+  root_backup=$(cat /var/lib/dotfiles-mouse/last-recovery)
+  [[ $root_backup =~ ^/var/lib/dotfiles-mouse/recovery\.[A-Za-z0-9]+$ ]] || exit 1
+  pkexec /usr/bin/python3 -I "$module/src/midscroll_routing/installation.py" --root / native-cursor \
+    --source "$module/apps/gecko/native-cursor.cfg" --backup "$root_backup/native-cursor.json"
+  printf 'Native cursor configuration applied; reload the browser to activate it.\n'
   exit
 fi
 cache=${XDG_CACHE_HOME:-$HOME/.cache}/dotfiles/mouse-builds
