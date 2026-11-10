@@ -185,6 +185,7 @@ def inspect_package(package: Path) -> None:
         "usr/bin/midscroll",
         "usr/bin/midscroll-router",
         f"{purelib}/midscroll_routing/__init__.py",
+        f"{purelib}/midscroll_routing/routing.py",
         f"{purelib}/midscroll_routing/session.py",
         "usr/share/midscroll/native-default.conf",
         "usr/bin/midscroll-overlay-session",

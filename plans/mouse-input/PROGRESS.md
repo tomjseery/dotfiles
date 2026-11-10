@@ -5,7 +5,8 @@ Plan: [PLAN.md](PLAN.md)
 Owner: this conversation; implementation authorized 2026-11-09.
 Checkout: `/home/tommy/projects/dotfiles/.worktrees/Fix-MouseGestureOwnership`.
 Branch: `Fix/MouseGestureOwnership`; base `5625f551c40a1c86eae4a58a137d045fd460ae2c`.
-PR: not opened; publication remains held. Live installation authorized 2026-11-10.
+PR: https://github.com/tomjseery/dotfiles/pull/8 (draft for user code inspection).
+Live installation authorized 2026-11-10; publication subsequently authorized.
 
 ## Current state
 
@@ -70,3 +71,27 @@ and retained recovery. No publication or further installation is requested.
 Preserve unrelated work, sessions, prior recovery directories and the withdrawn
 experiment. Publication is not authorized. Do not log out, reboot, restart or
 hot-unload the live compositor.
+
+## Code-organization follow-up
+
+The user requested clearer plugin naming and the Python package cleanup during PR
+inspection. `compositor-plugins/` replaces `target-bridges/`; all maintained path
+references are updated. The existing routing implementation moved byte-for-byte
+to `routing.py`; `__init__.py` explicitly re-exports its public API. All 135 tests,
+Ruff, strict mypy, shell checks and a real Arch package/import check pass. KWin
+builds at the new path. No live installation or compositor reload is part of this
+source-only cleanup.
+
+Installed Hyprland headers are now 0.57.2, while the unchanged plugin deliberately
+requires ABI 0.57.1. Its rebuild is not claimed; this is an existing environment/
+version mismatch, not caused by the directory move. Keep the ABI guard intact and
+requalify Hyprland separately before installing against the newer compositor.
+
+## Deferred C++ standards handoff
+
+The user asked to consider C++23 explicit object parameters (deducing this) in a
+later standards handoff. Owner: `cpp:mixins`; its examples currently use CRTP
+self-casts. Assess replacing those examples where the supported toolchain and
+composition semantics fit. Do not mechanically replace ordinary `static_cast`:
+the casts in this PR's Wayland fixture convert C API `void*` data/results, and
+explicit object parameters do not replace them. No C++ convention change was made.

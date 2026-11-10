@@ -1,4 +1,4 @@
-# Native pointer-target bridges
+# Compositor plugins for pointer targets
 
 These two independent native modules expose a read-only snapshot of the
 compositor's **current pointer input focus**. They do not intercept input, draw

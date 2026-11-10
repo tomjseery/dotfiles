@@ -213,11 +213,11 @@ if [[ $mode != --configs-only ]]; then
   "${tool[@]}" --build-package --manifest "$cache/candidate.json"
   "${tool[@]}" --prepare-recovery --manifest "$cache/previous.json"
   cmake_args=()
-  if [[ -f $module/target-bridges/build/dependencies/usr/include/vulkan/vulkan_core.h ]]; then
-    cmake_args+=("-DVulkan_INCLUDE_DIR=$module/target-bridges/build/dependencies/usr/include")
+  if [[ -f $module/compositor-plugins/build/dependencies/usr/include/vulkan/vulkan_core.h ]]; then
+    cmake_args+=("-DVulkan_INCLUDE_DIR=$module/compositor-plugins/build/dependencies/usr/include")
   fi
-  cmake -S "$module/target-bridges" -B "$module/target-bridges/build/dev" -G Ninja "${cmake_args[@]}"
-  cmake --build "$module/target-bridges/build/dev" --parallel 2
+  cmake -S "$module/compositor-plugins" -B "$module/compositor-plugins/build/dev" -G Ninja "${cmake_args[@]}"
+  cmake --build "$module/compositor-plugins/build/dev" --parallel 2
   if [[ $mode == --prepare ]]; then
     printf 'Prepared candidate: %s\nRecovery: %s\n' "$cache/candidate.json" "$cache/previous.json"
     exit 0
@@ -297,7 +297,7 @@ trap 'rollback_user "$?"' ERR
 trap 'rollback_user 130' INT
 trap 'rollback_user 143' TERM
 if [[ $mode != --configs-only ]]; then
-  system_output=$(pkexec "$module/install" --system "$cache/candidate.json" "$cache/previous.json" "$module/target-bridges/build/dev" "$cursor_source")
+  system_output=$(pkexec "$module/install" --system "$cache/candidate.json" "$cache/previous.json" "$module/compositor-plugins/build/dev" "$cursor_source")
   root_backup=${system_output##*$'\n'}
   [[ $root_backup =~ ^/var/lib/dotfiles-mouse/recovery\.[A-Za-z0-9]+$ ]] || {
     printf 'Invalid invocation-specific recovery receipt; inspect the retained system recovery directories.\n' >&2

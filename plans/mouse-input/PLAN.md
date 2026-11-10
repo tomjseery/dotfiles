@@ -5,11 +5,11 @@
 Tommy approved the fresh architecture assessment and implementation on 2026-11-09
 ("ok sounds good lets do it then"). The source-only checkpoint is superseded by Tommy's 2026-11-10 instruction to
 make the live feature work. Live installation is now authorized and applied;
-publication remains held. Do not log out, reboot or restart the desktop. Preserve
+publication was later authorized for draft PR #8. Do not log out, reboot or restart the desktop. Preserve
 unrelated preferences and sessions. On 2026-11-10 the user confirmed normal middle
 clicks and native autoscroll work together, then requested the prior clean moving
 arrow cursor instead of the browser's fixed circle. That visual requirement is
-active and has not yet been accepted.
+accepted by the user on 2026-11-10.
 The withdrawn experiment and its uncommitted records remain untouched at
 `/home/tommy/projects/dotfiles.worktrees/Fix-GenericMiddleClick`.
 
@@ -17,7 +17,8 @@ Canonical execution artifact: this file. The predecessor's mouse plan is
 diagnostic history, not an active implementation or a second writer.
 Checkout: `/home/tommy/projects/dotfiles/.worktrees/Fix-MouseGestureOwnership`.
 Branch: `Fix/MouseGestureOwnership`; base `origin/main`
-`5625f551c40a1c86eae4a58a137d045fd460ae2c`. No PR; publication remains held.
+`5625f551c40a1c86eae4a58a137d045fd460ae2c`. Draft PR:
+https://github.com/tomjseery/dotfiles/pull/8. Merge is not requested.
 
 ## Decision and acceptance
 
@@ -136,4 +137,4 @@ Final production source `44bb31d` passed real contained Wayland verification,
 independent review and package/observer installation. All 135 source checks pass;
 the installed files match the tested hashes and an inactive live readiness probe
 passes. The user's subsequent live confirmation completes the acceptance condition.
-See PROGRESS.md for the confirmation and retained recovery. Publication remains held.
+See PROGRESS.md for the confirmation and retained recovery. The draft PR is open for inspection; merge is not requested.

@@ -6,9 +6,9 @@ the existing desktop. Run from the repository root, after building the bridges
 as described in [their README](../README.md):
 
 ```sh
-uv run --project core/mouse --no-sync python core/mouse/target-bridges/tests/run.py \
-  --kwin-bridge core/mouse/target-bridges/build/dev/mousetarget.so \
-  --hyprland-bridge core/mouse/target-bridges/build/dev/mouse_target_hyprland.so \
+uv run --project core/mouse --no-sync python core/mouse/compositor-plugins/tests/run.py \
+  --kwin-bridge core/mouse/compositor-plugins/build/dev/mousetarget.so \
+  --hyprland-bridge core/mouse/compositor-plugins/build/dev/mouse_target_hyprland.so \
   --render-node /dev/dri/renderD128
 ```
 
