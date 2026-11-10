@@ -1,0 +1,9 @@
+core/config/shell/files	core/configs/shell
+core/config/kde/files	core/configs/kde
+core/config/apps/kitty/files	core/configs/kitty
+core/config/apps/vscode/files	core/configs/vscode
+core/config/apps/yazi/files	core/configs/apps
+core/config/apps/fastfetch/files	core/configs/apps
+core/config/apps/mangohud/files	core/configs/apps
+core/config/apps/easyeffects/files	core/configs/apps
+core/commands	core/configs/bin
