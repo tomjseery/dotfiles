@@ -117,10 +117,11 @@ and performed. That earlier source approval did not prove the requested browser
 cursor appearance. The canonical Git-private review work order remains the owner
 of later passes; resolve it with Engineering's `review-path` for `mouse-native`.
 
-## Active visual acceptance
+## Completed visual acceptance
 
-The user confirmed native link/tab clicks and scrolling work. The visible cursor
-requirement remains open. Independent actual Wayland evidence reproduced the
+The user confirmed native link/tab clicks and scrolling work, then confirmed
+"YEP WORKS now" on 2026-11-10 after the installed cursor fix. The visible cursor
+requirement is accepted. Independent actual Wayland evidence reproduced the
 missing native-state signal and the failure of CSS image cursors under Firefox's
 popup guard. The existing global renderer successfully shows its actual themed
 up/down cursor over native autoscroll when supplied with active state.
@@ -134,6 +135,5 @@ The browser restores its fixed indicator when its lease cannot be maintained.
 Final production source `44bb31d` passed real contained Wayland verification,
 independent review and package/observer installation. All 135 source checks pass;
 the installed files match the tested hashes and an inactive live readiness probe
-passes. Running Firefox must restart to load its startup bridge, then the user
-must confirm visible arrows and native click behavior. See PROGRESS.md for the
-pending acceptance and retained recovery. Do not mark this goal complete yet.
+passes. The user's subsequent live confirmation completes the acceptance condition.
+See PROGRESS.md for the confirmation and retained recovery. Publication remains held.
