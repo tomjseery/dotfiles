@@ -107,7 +107,7 @@ diff --git a/midscroll.py b/midscroll.py
  
  from evdev import InputDevice, UInput, ecodes as e, list_devices
 +from midscroll_routing import Gesture, Routing
-+from midscroll_routing.presentation import ACCEPTED, Presentation
++from midscroll_routing.presentation import ACCEPTED, Presentation, is_renderer
  
  VERSION = "1.15"
  
@@ -148,11 +148,13 @@ diff --git a/midscroll.py b/midscroll.py
      try:
          with open(f"/proc/{pid}/cmdline", "rb") as f:
              argv = [a.decode("utf-8") for a in f.read().split(b"\0") if a]
-@@ -401,6 +408,12 @@
+@@ -401,6 +408,14 @@
          self.last_pos = None
          self.active_uids = frozenset()
          self.ghost_visible = None
-+        self.presentation = Presentation(_uid_is_active)
++        self.renderers = {}
++        self.presentation = Presentation(
++            lambda uid: _uid_is_active(uid) and uid in self.renderers.values())
 +        self.cursor_messages = {}
 +        self.routing = Routing(
 +            frozenset(FALLBACK_APPS), e.BTN_MIDDLE,
@@ -161,7 +163,7 @@ diff --git a/midscroll.py b/midscroll.py
  
      async def start(self):
          try:
-@@ -430,10 +443,12 @@
+@@ -430,10 +445,12 @@
          peer_socket = writer.get_extra_info("socket")
          uid = _peer_uid(peer_socket)
          pid = _peer_pid(peer_socket)
@@ -176,7 +178,12 @@ diff --git a/midscroll.py b/midscroll.py
              return
          if self._too_many(uid):
              # Every connection costs a broadcast slot at GHOST_HZ, so a
-@@ -446,30 +461,56 @@
+@@ -443,33 +460,63 @@
+             return
+         client = FocusClient(uid)
+         self.writers[writer] = uid
++        if is_renderer(pid):
++            self.renderers[writer] = uid
          self.active_uids = frozenset(
              u for u in set(self.writers.values()) if _uid_is_active(u))
          try:
@@ -197,6 +204,7 @@ diff --git a/midscroll.py b/midscroll.py
              pass  # ValueError: line over SOCK_LIMIT, drop the peer
          finally:
              self.writers.pop(writer, None)
++            self.renderers.pop(writer, None)
 +            self.routing.disconnect(writer)
              self.focus.remove(client)
              writer.close()
@@ -223,6 +231,7 @@ diff --git a/midscroll.py b/midscroll.py
 +
      def _drop(self, writer):
          self.writers.pop(writer, None)
++        self.renderers.pop(writer, None)
 +        self.routing.disconnect(writer)
          try:
              writer.close()
@@ -237,7 +246,7 @@ diff --git a/midscroll.py b/midscroll.py
              if active_only and uid not in self.active_uids:
                  continue
              try:
-@@ -489,24 +530,26 @@
+@@ -489,24 +536,26 @@
  
      def set(self, active):
          msg = b"1\n" if active else b"0\n"
@@ -280,7 +289,7 @@ diff --git a/midscroll.py b/midscroll.py
  
      def pos(self, dx, dy):
          """Offset of the ghost cursor from the anchor, in screen pixels."""
-@@ -535,6 +578,7 @@
+@@ -535,6 +584,7 @@
  
      def __init__(self, ui):
          self.ui = ui
@@ -288,7 +297,7 @@ diff --git a/midscroll.py b/midscroll.py
          self.reset()
  
      def reset(self):
-@@ -652,8 +696,12 @@
+@@ -652,8 +702,12 @@
          now = time.monotonic()
          dt = min(now - last, MAX_TICK_DT)  # cap so a stall can't lurch
          last = now
@@ -301,7 +310,7 @@ diff --git a/midscroll.py b/midscroll.py
                  tick(st, dt, focus)
              except Exception as err:  # one bad tick must not kill the loop
                  log.error("tick error: %r", err)
-@@ -679,7 +727,7 @@
+@@ -679,7 +733,7 @@
  
  
  def tick(st, dt, focus):
@@ -310,7 +319,7 @@ diff --git a/midscroll.py b/midscroll.py
          # A blacklisted app is focused. Never scroll, and stop anything
          # already running (focus changed mid-scroll) so it can't keep
          # scrolling under the blacklisted app.
-@@ -875,11 +923,19 @@
+@@ -875,11 +929,19 @@
      if mirror_path:
          our_paths.add(mirror_path)
      st = states[path] = State(ui)
@@ -332,7 +341,7 @@ diff --git a/midscroll.py b/midscroll.py
                  if _toggle_key(ev, st, ui, focus):
                      continue
                  # An unrelated button while idle: fall through and forward it.
-@@ -929,8 +985,12 @@
+@@ -929,8 +991,12 @@
                                       st.dy * GHOST_SCALE)
                      continue
              if ev.type == e.EV_SYN:
@@ -345,7 +354,7 @@ diff --git a/midscroll.py b/midscroll.py
                  elif st.release_pending:
                      was_click = _finish_release(st, ui, notifier)
                      if was_click:
-@@ -952,6 +1012,8 @@
+@@ -952,6 +1018,8 @@
      finally:
          # Don't leave a button stuck down on the virtual device if the real
          # one vanished mid-press.
@@ -354,7 +363,7 @@ diff --git a/midscroll.py b/midscroll.py
          if held or st.passthrough:
              for code in held:
                  ui.write(e.EV_KEY, code, 0)
-@@ -1118,6 +1180,13 @@
+@@ -1118,6 +1186,13 @@
              dev.close()
  
  
@@ -368,7 +377,7 @@ diff --git a/midscroll.py b/midscroll.py
  async def main():
      focus = FocusFilter()
      notifier = Notifier(focus)
-@@ -1130,6 +1199,7 @@
+@@ -1130,6 +1205,7 @@
          log.warning("uinput phys marker did not round-trip; relying on "
                      "device-path tracking to skip our own mirrors")
      tick_task = asyncio.create_task(ticker(states, notifier, focus))
@@ -376,7 +385,7 @@ diff --git a/midscroll.py b/midscroll.py
      log.info("running")
      try:
          while True:
-@@ -1162,6 +1232,7 @@
+@@ -1162,6 +1238,7 @@
                      pump(path, dev, states, tasks, focus, our_paths, notifier))
              await asyncio.sleep(2)
      finally:
@@ -384,7 +393,7 @@ diff --git a/midscroll.py b/midscroll.py
          tick_task.cancel()
          for t in list(tasks.values()):
              t.cancel()
-@@ -1203,6 +1274,8 @@
+@@ -1203,6 +1280,8 @@
                 "override it for this run.")
      p.add_argument("--version", action="version",
                     version=f"midscroll {VERSION}")
@@ -393,7 +402,7 @@ diff --git a/midscroll.py b/midscroll.py
      p.add_argument("--config", default=CONFIG_PATH, metavar="PATH",
                     help=f"config file to read (default: {CONFIG_PATH})")
      p.add_argument("--debug", action="store_true",
-@@ -1257,6 +1330,8 @@
+@@ -1257,6 +1336,8 @@
          level=logging.DEBUG if args.debug else logging.INFO,
          format="%(levelname)s: %(message)s")
      load_config(args.config)
