@@ -378,7 +378,7 @@ async def run(desktop: str) -> None:
     while True:
         try:
             await serve(desktop)
-        except (OSError, ValueError, EOFError, DBusFastError) as error:
+        except (OSError, ValueError, EOFError, TimeoutError, DBusFastError) as error:
             log.warning("Routing helper disconnected: %s", error)
         await asyncio.sleep(2)
 
