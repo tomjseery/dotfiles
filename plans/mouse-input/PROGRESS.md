@@ -9,55 +9,52 @@ PR: not opened; publication and live deployment remain held.
 
 ## Current state
 
-Routing preparation and seven causal review repairs are implemented. Current
-committed tip `ee583dd` adds compositor observation barriers and event-driven
-revocation. Installer/recovery cutover, native application defaults, thin public
-wrappers and their regressions are being verified as the next coherent slice.
-The obsolete pass-through manifests and installed-executable overlay wrapper are
-removed from source; installed copies and restored runtime remain untouched.
+Authorized source implementation and isolated verification are complete.
+Technical source review is approved through `3a5c3b62f9f655a0e2361305394ee33ae514319e`.
+The branch contains pinned native-default routing, typed session/gesture handling,
+actual compositor target bridges, native application defaults, thin public
+installer entry points and retained package/file recovery. Obsolete pass-through
+manifests and the installed-executable overlay wrapper are removed from source.
+Installed copies and the restored runtime remain untouched.
 
-Both native bridges passed actual contained compositor tests: target queries,
-observation barriers, same-class root windows, A→B→A invalidation without querying
-B, empty-area rejection and cleanup. KWin used a private virtual backend;
-Hyprland nested inside it in a user namespace without physical input devices or
-host seat/session sockets. A reproducible harness is committed beside the
-bridges, with retained passing results for both backends. This does not establish composed helper/daemon or physical acceptance.
+The actual public `core/mouse/install --prepare` completes with 80 tests, ruff,
+strict mypy, both bridge builds, real Arch package/import inspection and a recovery
+archive matching installed package files. Bash syntax, ShellCheck and shfmt pass.
+Installer regressions cover private homes/locks, configs-only isolation, repeat
+runs, relocated checkouts, overlapping invocations, user-stage failure, and both
+automatic and explicit private-root recovery with synthetic package/service I/O.
 
-Installer tests now exercise disposable homes, configs-only isolation, unchanged
-repeat runs and recovery after a later settings failure. A private-root rehearsal
-checks automatic recovery after a failed service restart and explicit recovery
-after successful installation, using fake package/service boundaries. Real Arch
-package rebuilding and system-interpreter archive inspection are separate checks.
-The whole-source gate passes 80 tests, ruff and strict mypy; real native package
-building and archive import inspection pass. Incremental review is pending.
+Both native bridges pass the committed contained compositor harness: observation
+readiness, actual same-class root targets, A→B→A without querying B, new generations,
+empty-area rejection and final invalidation. KWin uses a virtual backend;
+Hyprland nests inside it without physical input nodes or host seat/session sockets.
+Generated results are ignored under the harness's artifacts directory.
 
 ## Reviews
 
-Full frozen candidate `2ac49c8` received seven changes-requested findings in the
-canonical Git-private work order. Causal repairs cover motion-frame ownership,
-resynchronization, inactive peers, sandbox UID mapping, packaged imports, GUI
-policy preservation and focus excursions. The first incremental review at 3f0b887 verified the original repairs and
-requested two additional changes: a module rebind for /tmp checkouts and complete
-installer transaction serialization with an invocation-specific recovery receipt.
-The next incremental pass confirmed those fixes but found validation sharing the
-production lock and root receipt capture depending on transcript storage. Tests
-now use private filesystem/lock namespaces; the root receipt is captured in memory
-before any later user-stage failure. Both repairs and regressions pass. The actual public --prepare completes with
-80 tests, both bridge builds, native package inspection and byte-verified recovery.
-Fresh incremental review is the remaining source gate.
-No clean watermark is claimed yet.
+Native Codex and independent security/concurrency reviews completed; all eleven
+findings are resolved. The canonical Git-private work order preserves frozen
+passes, original findings and dispositions. Resolve it with Engineering's
+`workflow_ops.py --root CHECKOUT --workflow-run-id mouse-native review-path`.
+The final documentation closeout uses that same work order; no second ledger or
+published review artifact is introduced.
 
-Automatic standards injection is a separate issue per Tommy. Explicitly loaded
-Python, Bash and C++ conventions govern this work; declarations restored from the
-onboarding owner are preserved and not silently published as mouse changes.
+Automatic standards injection remains a separate issue per Tommy. Explicitly
+loaded Python, Bash and C++ conventions govern this work; declarations restored
+from the onboarding owner are preserved outside the mouse commits.
 
-## Next Steps
+## Next action and limits
 
-Scope: approved source implementation through reviewable isolated verification.
-Current slice: finish installer/package checks and reproducible bridge acceptance.
-Remaining scope: final source gate, incremental review and remediation.
-Done when: replacement source and concrete installation/recovery are reviewed and
-verified; publication, live deployment and physical acceptance remain held.
+The authorized source acceptance condition is met. Publication, live installation,
+desktop/service activation and physical acceptance remain held under the plan's
+recorded scope. No deployment is implied by a source commit or review approval.
 
-Keep all source/runtime limitations explicit. Preserve the restored services,
-withdrawn experiment, user changes and the separate standards-refactor owner.
+A later authorized deployment must verify complete helper/daemon/application
+composition and physical KDE/Hyprland behaviour: native tab closing, link opening,
+native autoscroll, fallback start/stop, eligibility transitions and multiple
+input devices. The bridge snapshot and IPC timing limits remain explicit in the
+owning README. Source tests do not establish these deployment claims.
+
+Preserve restored services, the withdrawn experiment, unrelated user changes and
+the separate standards-refactor owner. Retain verified packages and recovery
+artifacts until deployment acceptance.

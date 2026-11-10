@@ -108,18 +108,20 @@ baseline is 1.15-1. Build a separately verified recovery package from that revis
 and preserve actual configuration/helper/unit state before any later authorized
 installation. No recovery/deployment action has run.
 
-## Next Steps
+## Source closeout and next action
 
-Scope: implement the approved design through isolated verification and review.
-Current slice: verified installer/recovery cutover and reproducible bridge harness.
-Remaining scope: frozen incremental review, remediation and source closeout.
-Done when: source is tested/reviewed and installation is concrete and reviewable;
-live deployment and publication remain held.
+The approved source implementation, concrete installer/recovery and isolated
+verification are complete. Technical review through
+`3a5c3b62f9f655a0e2361305394ee33ae514319e` is approved with all eleven findings
+resolved. The same canonical Git-private work order owns final documentation
+closeout; resolve it through Engineering's `review-path` for run `mouse-native`.
 
-The current routing/installer gate passes 80 tests, ruff and strict mypy. Real
-native package rebuilding and system-interpreter import inspection pass; the
-recovery archive matches every installed usr/ package file and executable mode.
-Private-root automatic/manual recovery rehearsals and configs-only isolation pass.
-Both native bridges passed contained real-window focus/transport acceptance.
-Complete live/composed application acceptance is still a deployment gate, not a
-claim established by these tests. See PROGRESS.md for the current review action.
+The actual public preparation command passes 80 tests, ruff, strict mypy, both
+bridge builds, real Arch package/import inspection and verified recovery. Bash
+checks pass. Both contained native compositor probes pass. See PROGRESS.md for
+current evidence and scope.
+
+No publication or live deployment has occurred. A later authorized deployment
+must verify complete helper/daemon/application composition and physical input on
+both desktops. Keep snapshot/IPC timing limits explicit and preserve the restored
+runtime, withdrawn experiment and unrelated work.
