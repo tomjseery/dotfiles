@@ -116,7 +116,7 @@ Remaining scope: frozen incremental review, remediation and source closeout.
 Done when: source is tested/reviewed and installation is concrete and reviewable;
 live deployment and publication remain held.
 
-The current routing/installer gate passes 79 tests, ruff and strict mypy. Real
+The current routing/installer gate passes 80 tests, ruff and strict mypy. Real
 native package rebuilding and system-interpreter import inspection pass; the
 recovery archive matches every installed usr/ package file and executable mode.
 Private-root automatic/manual recovery rehearsals and configs-only isolation pass.

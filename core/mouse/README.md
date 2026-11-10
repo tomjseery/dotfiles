@@ -66,7 +66,8 @@ midscroll installation: recovery refuses an unverified installed version.
 The focused command is `./core/mouse/check`. Shell changes also require `bash -n`,
 ShellCheck and `shfmt -d -i 2`. Tests exercise the prepared patched daemon and
 actual Unix transport without physical devices. Installer tests use disposable
-homes. Bubblewrap tests run root stages in a private user namespace with synthetic
+homes and private lock namespaces, including when the public prepare command
+holds its production transaction lock. Bubblewrap tests run root stages in a private user namespace with synthetic
 package/service commands, then check automatic and explicit restoration. They
 prove transaction ordering and file recovery; the separate real Arch build proves
 package layout and system-interpreter imports. They do not simulate pacman's
