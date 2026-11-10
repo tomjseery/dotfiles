@@ -59,7 +59,8 @@ native host retarget.
 
 ## Current evidence
 
-- Main and withdrawn checkout status match the handoff; changes preserved.
+- Main and withdrawn checkout changes are preserved, including concurrent work
+  by their existing owners.
 - Both restored services active; daemon/helper/config SHA-256 still match handoff.
 - Independently reproduced passive-viewer timeout using actual Unix transport and
   peer UID checks, and ticker/query reset using deterministic in-memory inputs.
@@ -83,16 +84,12 @@ native host retarget.
 
 ## Reviews
 
-Full frozen review at `2ac49c83f250b6af82bb65067284baa3a112ff9c` completed:
-changes requested, seven verified findings in the canonical Git-private work order
-resolved by `workflow_ops.py review-path` for run `mouse-native`. Native Codex plus
-independent security/concurrency review ran. No clean watermark claimed.
-Motion-frame ownership, SYN_DROPPED, inactive authority counting, sandbox UID mapping,
-packaged import paths and GUI policy preservation now have causal repairs and tests.
-Focus invalidation composition and contained compositor acceptance pass.
-The first incremental pass at 3f0b887 requested two additional repairs: checkout
-relocation in root tests and serialized installer/recovery transactions. Both have
-causal fixes and regressions; their fresh incremental review remains open.
+Technical review through `3a5c3b62f9f655a0e2361305394ee33ae514319e` is approved.
+Native Codex and independent security/concurrency passes verified all eleven
+technical findings and their causal repairs. The canonical Git-private work order
+owns immutable pass identities, findings, dispositions and the current completion
+watermark; resolve it with Engineering's `review-path` for run `mouse-native`.
+Final documentation closeout uses the same work order.
 
 The helper uses the already-installed managed `dbus-fast` API for a real awaited
 D-Bus AddMatch barrier; stdlib has no D-Bus implementation, command monitor output
@@ -106,7 +103,7 @@ Exact rollback source discovered read-only: upstream
 executables byte-for-byte. Its Arch PKGBUILD retained pkgver=1.14; the installed
 baseline is 1.15-1. Build a separately verified recovery package from that revision
 and preserve actual configuration/helper/unit state before any later authorized
-installation. No recovery/deployment action has run.
+installation. Only isolated recovery rehearsals have run; no live installation or recovery.
 
 ## Source closeout and next action
 
