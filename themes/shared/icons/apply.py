@@ -31,9 +31,14 @@ def apply(home, dry_run=False):
     if launcher.exists() or system_launcher.exists():
         if launcher.is_symlink():
             raise ValueError(f'Refusing to replace a launcher symlink: {launcher}')
-        original = launcher.read_text() if launcher.exists() else system_launcher.read_text()
-        changes.append((launcher, lambda _original, overlay: settings.merge_kconfig(original, overlay),
-                        '[Desktop Entry]\nIcon=discord\n'))
+        original = launcher.read_text() if launcher.exists() else ''
+        generated = not original or 'X-Dotfiles-Generated=true' in original
+        if generated and system_launcher.exists():
+            original = system_launcher.read_text()
+        overlay = '[Desktop Entry]\nIcon=discord\n'
+        if generated:
+            overlay += 'X-Dotfiles-Generated=true\n'
+        changes.append((launcher, lambda _original, value: settings.merge_kconfig(original, value), overlay))
     for version in ['3.0', '4.0']:
         changes.append((config / f'gtk-{version}/settings.ini', settings.merge_kconfig,
                         f'[Settings]\ngtk-icon-theme-name={name}\n'))
