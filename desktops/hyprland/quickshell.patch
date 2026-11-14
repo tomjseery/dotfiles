@@ -334,3 +334,13 @@
          Cliphist.refresh()
          Wallpapers.load()
          Football.load()
+--- a/services/AppSearch.qml
++++ b/services/AppSearch.qml
+@@ -97,6 +97,7 @@
+ 
+     function guessIcon(str) {
+         if (!str || str.length == 0) return "image-missing";
++        if (str.toLowerCase() === "vesktop") return "discord";
+ 
+         // Quickshell's desktop entry lookup
+         const entry = DesktopEntries.byId(str);
