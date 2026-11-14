@@ -23,5 +23,8 @@ launcher, so a later selection in KDE is used when the shell next starts.
 Icon artwork is installed by `papirus-icon-theme` under `/usr/share/icons/`.
 The repository stores the choice and dependency, rather than a copied icon pack.
 App-provided icons remain available as fallbacks for logos absent from the theme.
+The shared icon installer also sets Vesktop's launcher to the Discord icon for
+KDE and Hyprland. The Hyprland shell maps the Vesktop window ID to that icon as
+well, so a cached desktop entry cannot restore Vesktop's own icon.
 Reopen applications or start the next desktop session to refresh cached icons;
 the installer does not log out or restart either desktop.
