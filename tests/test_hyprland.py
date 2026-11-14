@@ -100,7 +100,7 @@ class HyprlandPresets(unittest.TestCase):
             self.assertEqual(cfg['appearance']['icons']['theme'], 'Papirus-Dark')
             self.assertFalse(cfg['bar']['bottom'])
             self.assertEqual(cfg['dock']['position'], 'bottom')
-            self.assertEqual(len(cfg['dock']['pinnedApps']), 8)
+            self.assertEqual(len(cfg['dock']['pinnedApps']), 9)
             self.assertIn('hyprland-x', cfg['dock']['pinnedApps'])
             self.assertTrue((build / 'config/illogical-impulse/schemes/charcoal_anime.json').is_file())
             shell = build / 'config/quickshell/ii'
