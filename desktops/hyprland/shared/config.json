@@ -366,12 +366,14 @@
     "style": "hug",
     "pinnedApps": [
       "end4-pc-terminal",
+      "firefox",
       "google-chrome",
       "code",
       "org.kde.dolphin",
       "hyprland-youtube",
       "youtube-music",
-      "hyprland-x"
+      "hyprland-x",
+      "vesktop"
     ]
   },
   "hyprland": {

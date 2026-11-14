@@ -1,5 +1,5 @@
 [General]
-BrowserApplication=google-chrome.desktop
+BrowserApplication=firefox.desktop
 MiddleClickPaste=false
 TerminalApplication=kitty
 TerminalService=kitty.desktop
