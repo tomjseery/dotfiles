@@ -17,7 +17,7 @@ Canonical execution artifact: this file. The predecessor's mouse plan is
 diagnostic history, not an active implementation or a second writer.
 Checkout: `/home/tommy/projects/dotfiles/.worktrees/Fix-MouseGestureOwnership`.
 Branch: `Fix/MouseGestureOwnership`; base `origin/main`
-`5625f551c40a1c86eae4a58a137d045fd460ae2c`. Draft PR:
+`894760638e9828096a68ef49dc0343426e0d67b9`. Draft PR:
 https://github.com/tomjseery/dotfiles/pull/8. Merge is not requested.
 
 ## Decision and acceptance
@@ -89,7 +89,7 @@ native host retarget.
 
 ## Reviews
 
-Technical review through `3a5c3b62f9f655a0e2361305394ee33ae514319e` is approved.
+Technical review through `9b2c00ab6ea4dddfa9efc939b7b55ff77ea521ed` is approved.
 Native Codex and independent security/concurrency passes verified all eleven
 technical findings and their causal repairs. The canonical Git-private work order
 owns immutable pass identities, findings, dispositions and the current completion

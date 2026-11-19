@@ -4,7 +4,7 @@ Plan: [PLAN.md](PLAN.md)
 
 Owner: this conversation; implementation authorized 2026-11-09.
 Checkout: `/home/tommy/projects/dotfiles/.worktrees/Fix-MouseGestureOwnership`.
-Branch: `Fix/MouseGestureOwnership`; base `5625f551c40a1c86eae4a58a137d045fd460ae2c`.
+Branch: `Fix/MouseGestureOwnership`; base `894760638e9828096a68ef49dc0343426e0d67b9`.
 PR: https://github.com/tomjseery/dotfiles/pull/8 (draft for user code inspection).
 Live installation authorized 2026-11-10; publication subsequently authorized.
 
