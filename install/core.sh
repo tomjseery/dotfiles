@@ -14,9 +14,11 @@ set -- "${arguments[@]}"
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/common.bash"
 source "$repo_root/install/lib/dotfiles/configuration.bash"
 python3 "$repo_root/scripts/apply-settings.py" "$repo_root/core/config" --dry-run
+python3 "$repo_root/core/config/apps/firefox/fix-no-vpn-launcher.py" --dry-run
 dotfiles_config_stow "$repo_root" all "${#dry_run[@]}"
 "$repo_root/install/agents.sh" --configs-only "${dry_run[@]}"
 apply_settings "$repo_root/core/config"
+python3 "$repo_root/core/config/apps/firefox/fix-no-vpn-launcher.py" "${dry_run[@]}"
 # Expand HOME when Bash reads the installed loader.
 # shellcheck disable=SC2016
 loader='source "$HOME/.config/shell/interactive.bash"'
