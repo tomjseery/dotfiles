@@ -108,10 +108,9 @@ program and manual sorting. Running windows occupy their pinned icon, where
 the Plasma style supplies the running and active backgrounds. The browser pin
 follows the default browser rather than naming a particular browser.
 
-If a changed application launcher appears separately from its pin, rebuild
-KDE's application database with `kbuildsycoca6 --noincremental` from the desktop
-session's locale. Custom launchers sharing the same `StartupWMClass` can make
-window matching ambiguous; changing grouping settings does not resolve that.
+If a running app appears separately from its pin, use the
+[KDE launcher identity checker](desktops/kde/README.md) to inspect conflicting
+launchers and repair the entry that claims the wrong window.
 
 ## Setting up a new machine
 
